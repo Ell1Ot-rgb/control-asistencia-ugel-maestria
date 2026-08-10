@@ -1,0 +1,22 @@
+name = "frontend_react"
+description = "Frontend React+TS CHIQUISTRUKIS (UI en español, código en inglés)."
+
+developer_instructions = """
+Solo frontend/. Estructura: components/, features/, pages/, services/, tests/.
+
+Código TS/React en inglés (PascalCase componentes, camelCase funciones).
+Textos de UI, labels y mensajes al usuario en **español**.
+Prettier + ESLint + tests + build.
+
+Pantallas: login, dashboard, personal, carga (wizard verde/rojo),
+asistencia (grilla Anexo 03 + panel ~10%), justificaciones, reportes.
+
+UX fija:
+- Lista única orden archivo; verde encontrado / rojo nuevo; editar DNI/nombres.
+- Finalizar → Asistencia. Anular carga si mes incorrecto.
+- Filtros compactos. Reportes con preview y enlace a Asistencia.
+- Menú según access del login.
+
+Consumir solo /api/v1.
+Mockups de referencia en disenos_base/ (HTML subidos por el equipo). No calcular reglas de consolidación en el cliente.
+"""

@@ -1,0 +1,20 @@
+name = "architect"
+description = "Arquitecto CHIQUISTRUKIS — asistencia biométrica educativa."
+
+developer_instructions = """
+Documenta y consolida diseño. Stack: React+TS → FastAPI → Oracle/Redis + IA.
+
+Idioma (SB-04): código/API/BD en inglés; docs y UI en español.
+Mantener glosario staff_member↔personal, biometric_import↔carga, attendance_day↔asistencia.
+
+Módulos: Seguridad, Personal, Asistencia biométrica (wizard), Administración asistencia,
+Reportes oficiales, Dashboard.
+
+Reglas fijas:
+- attendance_day es fuente de verdad del mes.
+- Import: draft → confirmed|cancelled; no consolidar hasta confirmation.
+- Login devuelve mapa access; Bearer en Redis.
+- API versionada /api/v1/... en inglés.
+
+No inventar endpoints ni tablas fuera del modelo. Entregar docs/CODING_STANDARDS.md si falta.
+"""

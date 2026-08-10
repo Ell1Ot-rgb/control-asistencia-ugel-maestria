@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .chart-bars{display:flex;align-items:flex-end;gap:12px;height:180px;padding-top:8px;border-bottom:1px solid var(--border);}
+    .chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
+    .chart-bar{width:100%;max-width:40px;border-radius:6px 6px 0 0;}
+    .chart-bar-label{font-size:11px;color:var(--text-muted);}
+    .chart-bar-value{font-size:11px;font-weight:600;}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Dashboard</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Resumen operativo</h1>
+          <p class="page-desc">Indicadores del sistema y distribución de marcaciones del período</p>
+        </div>
+
+        <div class="filters">
+          <div class="form-group">
+            <label>Mes</label>
+            <select><option>Junio</option><option>Julio</option><option>Mayo</option></select>
+          </div>
+          <div class="form-group">
+            <label>Año</label>
+            <select><option>2026</option></select>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="btn btn-sm btn-primary">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns: repeat(2, minmax(160px, 220px));">
+          <div class="kpi-card blue">
+            <div class="label">Archivos cargados</div>
+            <div class="value">14</div>
+            <div class="trend">Importaciones biométricas</div>
+          </div>
+          <div class="kpi-card green">
+            <div class="label">Empleados activos</div>
+            <div class="value">42</div>
+            <div class="trend">Personal en la institución</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Marcaciones del mes · Junio 2026</div>
+          <div class="card-body">
+            <div class="chart-bars">
+              <div class="chart-bar-wrap"><span class="chart-bar-value">1156</span><div class="chart-bar" style="height:85%;background:#15803d;"></div><span class="chart-bar-label">Asistencia</span></div>
+              <div class="chart-bar-wrap"><span class="chart-bar-value">38</span><div class="chart-bar" style="height:18%;background:#a16207;"></div><span class="chart-bar-label">Tardanza</span></div>
+              <div class="chart-bar-wrap"><span class="chart-bar-value">24</span><div class="chart-bar" style="height:12%;background:#b91c1c;"></div><span class="chart-bar-label">Inasistencia</span></div>
+              <div class="chart-bar-wrap"><span class="chart-bar-value">11</span><div class="chart-bar" style="height:8%;background:#2563eb;"></div><span class="chart-bar-label">Justificado</span></div>
+              <div class="chart-bar-wrap"><span class="chart-bar-value">6</span><div class="chart-bar" style="height:5%;background:#7c3aed;"></div><span class="chart-bar-label">Licencia</span></div>
+              <div class="chart-bar-wrap"><span class="chart-bar-value">3</span><div class="chart-bar" style="height:3%;background:#64748b;"></div><span class="chart-bar-label">Permiso</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Últimas cargas</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Archivo</th><th>Período</th><th>Fecha</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>marcas_junio_2026.xlsx</td><td>Junio 2026</td><td>02/08/2026</td>
+                  <td><span class="badge badge-success">Confirmada</span></td>
+                  <td><a class="btn btn-sm btn-secondary" href="carga.html">Ver</a></td>
+                </tr>
+                <tr>
+                  <td>marcas_mayo_2026.xlsx</td><td>Mayo 2026</td><td>02/06/2026</td>
+                  <td><span class="badge badge-success">Confirmada</span></td>
+                  <td><a class="btn btn-sm btn-secondary" href="carga.html">Ver</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reportes – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .report-layout{display:flex;gap:20px;align-items:flex-start;}
+    .report-filters{width:210px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;box-shadow:var(--shadow);position:sticky;top:64px;}
+    .report-filters h3{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:12px;}
+    .report-filters .btn{margin-bottom:6px;}
+    .report-main{flex:1;min-width:0;}
+    .preview-note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;}
+    @media(max-width:900px){.report-layout{flex-direction:column;}.report-filters{width:100%;position:static;}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item active" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Reportes</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Reportes oficiales</h1>
+          <p class="page-desc">Anexo 03 y 04 · visualizar, exportar o corregir en Asistencia</p>
+        </div>
+
+        <div class="report-layout">
+          <aside class="report-filters">
+            <h3>Filtros</h3>
+            <div class="form-group">
+              <label>Tipo de anexo</label>
+              <select id="tipoAnexo">
+                <option value="3" selected>Anexo 03 – Detallado</option>
+                <option value="4">Anexo 04 – Consolidado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Mes</label>
+              <select><option>Junio</option><option>Julio</option><option>Mayo</option></select>
+            </div>
+            <div class="form-group">
+              <label>Año</label>
+              <select><option>2026</option></select>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary btn-block">Generar vista</button>
+            <button type="button" class="btn btn-sm btn-secondary btn-block">Exportar Excel</button>
+            <a href="asistencia.html" class="btn btn-sm btn-ghost btn-block" style="text-align:center;">Corregir en Asistencia</a>
+          </aside>
+
+          <div class="report-main">
+            <div class="card" id="vistaAnexo3">
+              <div class="card-header">Anexo 03 · Junio 2026</div>
+              <div class="card-body">
+                <div class="preview-note">Vista de solo lectura. Para corregir un día usa Asistencia.</div>
+                <p class="text-sm text-muted" style="margin-bottom:10px;">IE ejemplo · UGEL · Código modular 123456</p>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>DNI</th><th>Apellidos y nombres</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>…</th><th>15</th><th>16</th><th>…</th><th>30</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>45678912</td><td>Quispe Mamani, María Elena</td><td>A</td><td>A</td><td>T</td><td>A</td><td>J</td><td>…</td><td>A</td><td>I</td><td>…</td><td>A</td></tr>
+                      <tr><td>71234567</td><td>Huamán Rojas, Carlos Alberto</td><td>A</td><td>T</td><td>A</td><td>A</td><td>A</td><td>…</td><td>A</td><td>A</td><td>…</td><td>T</td></tr>
+                      <tr><td>40112233</td><td>Flores Ilacopa, Leida Idalecia</td><td>A</td><td>A</td><td>A</td><td>J</td><td>J</td><td>…</td><td>A</td><td>A</td><td>…</td><td>A</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="card" id="vistaAnexo4" style="display:none;">
+              <div class="card-header">Anexo 04 · Junio 2026</div>
+              <div class="card-body">
+                <div class="preview-note">Totales del mes. Corrección día a día en Asistencia.</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>DNI</th><th>Apellidos y nombres</th><th>Asist.</th><th>Tard.</th><th>Inasist.</th><th>Justif.</th><th>Min. tard.</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>45678912</td><td>Quispe Mamani, María Elena</td><td>18</td><td>2</td><td>1</td><td>1</td><td>25</td></tr>
+                      <tr><td>71234567</td><td>Huamán Rojas, Carlos Alberto</td><td>17</td><td>4</td><td>1</td><td>0</td><td>48</td></tr>
+                      <tr><td>40112233</td><td>Flores Ilacopa, Leida Idalecia</td><td>20</td><td>0</td><td>0</td><td>2</td><td>0</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <script>
+          document.getElementById('tipoAnexo').addEventListener('change', function () {
+            var is3 = this.value === '3';
+            document.getElementById('vistaAnexo3').style.display = is3 ? 'block' : 'none';
+            document.getElementById('vistaAnexo4').style.display = is3 ? 'none' : 'block';
+          });
+        </script>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

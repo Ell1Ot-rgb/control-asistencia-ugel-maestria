@@ -1,0 +1,20 @@
+name = "oracle_dba"
+description = "Oracle DBA — modelo asistencia CHIQUISTRUKIS (snake_case inglés)."
+
+developer_instructions = """
+Solo database/.
+
+Tablas en inglés snake_case: user_account, institution, staff_member, staff_institution,
+biometric_import (status, period_start, period_end), biometric_mark, inconsistency,
+justification, attendance_day, audit_log.
+
+Reglas:
+- dni UNIQUE 8 dígitos; FK con _id.
+- Confirmación de import consolida attendance_day.
+- Cancelación revierte y recalcula.
+- Baja lógica; no borrar histórico ni pisar marcas originales.
+- Tipos Oracle: NUMBER, VARCHAR2, CHAR, DATE, TIMESTAMP, CLOB.
+- Migraciones versionadas; índices justificados.
+
+No modificar backend/ ni frontend/.
+"""

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Carga biométrica – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .steps{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+    .step{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;background:#f1f5f9;color:#64748b;border:1px solid var(--border);}
+    .step.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+    .step.done{background:var(--success-bg);color:var(--success);border-color:#bbf7d0;}
+    .row-found td{background:#f0fdf4;}
+    .row-new td{background:#fef2f2;}
+    .cell-input{width:96px;height:28px;padding:0 8px;border:1px solid var(--border-strong);border-radius:6px;font-size:12px;}
+    .cell-input.wide{width:130px;}
+    .cell-input:focus{border-color:var(--primary);outline:none;box-shadow:var(--focus);}
+    .period-box{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;
+      padding:14px 16px;margin-bottom:16px;background:var(--primary-soft);border:1px solid #bfdbfe;border-radius:var(--radius-lg);}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item active" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Carga biométrica</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Carga biométrica</h1>
+          <p class="page-desc">Sube el archivo, valida personal (verde/rojo) y finaliza hacia Asistencia</p>
+        </div>
+
+        <div class="steps">
+          <span class="step done">1. Subir</span>
+          <span class="step active">2. Validar personal</span>
+          <span class="step">3. Finalizar</span>
+        </div>
+
+        <div class="stats-row">
+          <span class="stat-pill">Archivo: <strong>marcas_junio_2026.xlsx</strong></span>
+          <span class="stat-pill">Filas: <strong>186</strong></span>
+          <span class="stat-pill" style="color:var(--success)">Encontrados: <strong>183</strong></span>
+          <span class="stat-pill" style="color:var(--danger)">Nuevos: <strong>3</strong></span>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span>Personal del archivo · mismo orden de subida</span>
+            <span class="text-sm text-muted">Edita DNI y nombres antes de confirmar</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>DNI</th><th>Apellidos</th><th>Nombres</th><th>Match</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr class="row-found">
+                  <td>1</td>
+                  <td><input class="cell-input" value="45678912" /></td>
+                  <td><input class="cell-input wide" value="Quispe Mamani" /></td>
+                  <td><input class="cell-input wide" value="María Elena" /></td>
+                  <td><span class="badge badge-success">Encontrado</span></td>
+                  <td><button class="btn btn-sm btn-secondary">Re-buscar</button></td>
+                </tr>
+                <tr class="row-found">
+                  <td>2</td>
+                  <td><input class="cell-input" value="71234567" /></td>
+                  <td><input class="cell-input wide" value="Huamán Rojas" /></td>
+                  <td><input class="cell-input wide" value="Carlos Alberto" /></td>
+                  <td><span class="badge badge-success">Encontrado</span></td>
+                  <td><button class="btn btn-sm btn-secondary">Re-buscar</button></td>
+                </tr>
+                <tr class="row-new">
+                  <td>3</td>
+                  <td><input class="cell-input" value="99887766" /></td>
+                  <td><input class="cell-input wide" value="García López" /></td>
+                  <td><input class="cell-input wide" value="Rosa María" /></td>
+                  <td><span class="badge badge-danger">Nuevo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-primary">Registrar</button>
+                    <button class="btn btn-sm btn-ghost">Omitir</button>
+                  </td>
+                </tr>
+                <tr class="row-found">
+                  <td>4</td>
+                  <td><input class="cell-input" value="40112233" /></td>
+                  <td><input class="cell-input wide" value="Flores Ilacopa" /></td>
+                  <td><input class="cell-input wide" value="Leida Idalecia" /></td>
+                  <td><span class="badge badge-success">Encontrado</span></td>
+                  <td><button class="btn btn-sm btn-secondary">Re-buscar</button></td>
+                </tr>
+                <tr class="row-new">
+                  <td>5</td>
+                  <td><input class="cell-input" value="88776655" /></td>
+                  <td><input class="cell-input wide" value="Torres Vega" /></td>
+                  <td><input class="cell-input wide" value="Luis Alberto" /></td>
+                  <td><span class="badge badge-danger">Nuevo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-primary">Registrar</button>
+                    <button class="btn btn-sm btn-ghost">Omitir</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="period-box">
+          <div>
+            <div class="text-sm text-muted">Período detectado en el archivo</div>
+            <div style="font-weight:700;color:var(--primary);margin-top:2px;">01/06/2026 – 30/06/2026 · Junio 2026</div>
+            <div class="text-sm text-muted mt-2">Si no es el mes correcto, cancela antes de finalizar.</div>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="btn btn-sm btn-secondary">Cancelar</button>
+            <a href="asistencia.html" class="btn btn-sm btn-primary">Finalizar → Asistencia</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Historial de cargas</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Archivo</th><th>Período</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>marcas_mayo_2026.xlsx</td><td>Mayo 2026</td><td>02/06/2026</td>
+                  <td><span class="badge badge-success">Confirmada</span></td>
+                  <td><button class="btn btn-sm btn-danger-outline">Anular carga</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>
