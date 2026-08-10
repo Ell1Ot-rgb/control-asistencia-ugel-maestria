@@ -1,8 +1,9 @@
 """TEC-D11 — audit trail (persists when Oracle available; always logs structured events)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 
 class AuditService:

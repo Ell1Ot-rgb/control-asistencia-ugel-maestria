@@ -1,4 +1,5 @@
 """TEC-D06 — inconsistency orchestration."""
+
 from app.rules.inconsistency_rules import detect_basic_issues, ia_suggest
 
 

@@ -1,15 +1,18 @@
 """TEC-D03 — password hashing helpers."""
-from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from __future__ import annotations
+
+import bcrypt
 
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode(
+        "utf-8"
+    )
 
 
 def verify_password(plain: str, password_hash: str) -> bool:
     try:
-        return pwd_context.verify(plain, password_hash)
-    except Exception:
+        return bcrypt.checkpw(plain.encode("utf-8"), password_hash.encode("utf-8"))
+    except (TypeError, ValueError):
         return False

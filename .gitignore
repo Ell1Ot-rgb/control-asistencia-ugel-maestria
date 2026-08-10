@@ -14,6 +14,7 @@ frontend/dist/
 .idea/
 .vscode/
 database/**/*.local.sql
+database/00_configuracion/00_parametros.local.bat
 coverage/
 htmlcov/
 .DS_Store

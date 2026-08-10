@@ -1,4 +1,5 @@
 """TEC-D03 — authentication and access map."""
+
 from __future__ import annotations
 
 import secrets

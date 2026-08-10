@@ -1,4 +1,5 @@
 """TEC-D06."""
+
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_token
