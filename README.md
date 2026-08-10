@@ -91,13 +91,6 @@ ejecutar-bd.bat
 
 El instalador ejecuta en orden: schema, tablas, índices, seed y checks. Puede correrse varias veces sin duplicar datos.
 
-### 2. Redis
-
-```bash
-cd infra/redis
-docker compose up -d
-```
-
 ### 3. Backend
 
 ```bash
