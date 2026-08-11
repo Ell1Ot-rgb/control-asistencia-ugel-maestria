@@ -1,5 +1,6 @@
 """TEC-D07 — justification routes."""
 
+import os
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,8 @@ from app.services.justification_service import (
 )
 
 router = APIRouter(prefix="/api/v1/justifications", tags=["justifications"])
+
+VALID_NORM_CODES = {"J", "LS", "LG", "P", "H", "F", "LIC", "PER"}
 
 
 @router.get("")
@@ -44,9 +47,19 @@ async def create_justification(
     support_file: UploadFile | None = File(None),
     session: dict = Depends(require_token),
 ):
-    support_file_path = (
-        f"support_files/{support_file.filename}" if support_file else None
-    )
+    if norm_code not in VALID_NORM_CODES:
+        raise HTTPException(status_code=400, detail="Invalid norm_code")
+
+    support_file_path = None
+    if support_file and support_file.filename:
+        content = await support_file.read()
+        upload_dir = os.path.join("uploads", "justifications")
+        os.makedirs(upload_dir, exist_ok=True)
+        target_path = os.path.join(upload_dir, support_file.filename)
+        with open(target_path, "wb") as f:
+            f.write(content)
+        support_file_path = f"uploads/justifications/{support_file.filename}"
+
     data = {
         "staff_member_id": staff_member_id,
         "start_date": start_date,
@@ -75,6 +88,9 @@ async def create_justification(
 def update_justification(
     id: int, body: JustificationUpdate, session: dict = Depends(require_token)
 ):
+    if body.norm_code not in VALID_NORM_CODES:
+        raise HTTPException(status_code=400, detail="Invalid norm_code")
+
     data = body.model_dump()
     data["registered_by_id"] = session["user_id"]
     try:

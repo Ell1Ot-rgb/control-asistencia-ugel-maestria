@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pytest
 from fastapi.testclient import TestClient
 
@@ -138,3 +139,32 @@ def test_invalid_attendance_status_returns_400(auth_headers: dict[str, str]) -> 
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid attendance day"}
+
+
+def test_create_justification_saves_support_file_physically(auth_headers: dict[str, str]) -> None:
+    client = TestClient(app)
+    file_content = b"PDF mock content for justification"
+
+    response = client.post(
+        "/api/v1/justifications",
+        data={
+            "staff_member_id": "1",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-15",
+            "norm_code": "LG",
+            "with_pay": "Y",
+            "reason": "Licencia con goce medica",
+        },
+        files={"support_file": ("licencia_medica.pdf", file_content, "application/pdf")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201
+    item = response.json()
+    assert item["support_file_path"] is not None
+    assert "licencia_medica.pdf" in item["support_file_path"]
+
+    saved_path = os.path.join("uploads", "justifications", "licencia_medica.pdf")
+    assert os.path.exists(saved_path)
+    with open(saved_path, "rb") as f:
+        assert f.read() == file_content

@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.attendance_service import attendance_service
 from app.services.biometric_import_service import biometric_import_service
 from app.services.staff_member_service import staff_member_service
 
@@ -18,6 +19,8 @@ CSV_CONTENT = (
 def reset_demo_data() -> None:
     staff_member_service.reset_demo_data()
     biometric_import_service.reset()
+    attendance_service.reset()
+
 
 
 @pytest.fixture()
