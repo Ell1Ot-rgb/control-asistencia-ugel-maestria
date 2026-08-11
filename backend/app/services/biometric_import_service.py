@@ -112,12 +112,16 @@ class BiometricImportService:
 
         from app.services.attendance_service import attendance_service
         for row in imp["rows"]:
-            if row.get("skipped") or not row.get("staff_member_id"):
+            if (
+                row.get("skipped")
+                or not row.get("staff_member_id")
+                or row.get("mark_type") != "entry"
+            ):
                 continue
             marked_at_str = row["marked_at"]
             date_part, time_part = marked_at_str.split(" ", 1)
 
-            hours, minutes, _ = map(int, time_part.split(":"))
+            hours, minutes, _ = map(int, time_part.split(":")
             entry_minutes = hours * 60 + minutes
             standard_minutes = 8 * 60
 
