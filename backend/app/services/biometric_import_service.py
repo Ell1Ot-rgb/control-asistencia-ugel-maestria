@@ -121,7 +121,7 @@ class BiometricImportService:
             marked_at_str = row["marked_at"]
             date_part, time_part = marked_at_str.split(" ", 1)
 
-            hours, minutes, _ = map(int, time_part.split(":")
+            hours, minutes, _ = map(int, time_part.split(":"))
             entry_minutes = hours * 60 + minutes
             standard_minutes = 8 * 60
 

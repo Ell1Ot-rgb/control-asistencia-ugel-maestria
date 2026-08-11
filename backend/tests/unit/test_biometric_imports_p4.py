@@ -141,7 +141,7 @@ def test_confirm_creates_attendance_days(auth_headers: dict[str, str]) -> None:
 
     from app.services.attendance_service import attendance_service
     days = attendance_service.list_month(7, 2026)
-    assert len(days) == 2
+    assert len(days) == 1
     assert days[0]["attendance_date"] == "2026-07-01"
     assert days[0]["status"] in {"present", "late"}
 
@@ -167,3 +167,31 @@ def test_confirm_calculates_tardanzas_correctly(auth_headers: dict[str, str]) ->
     assert late_day["late_minutes"] == 25
 
 
+
+
+def test_confirm_uses_entry_mark_instead_of_exit_mark(
+    auth_headers: dict[str, str],
+) -> None:
+    client = TestClient(app)
+    csv_with_exit = (
+        "dni,last_names,first_names,marked_at,mark_type\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-04 08:30:00,entry\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-04 13:00:00,exit\n"
+    )
+    import_response = client.post(
+        "/api/v1/biometric-imports",
+        files={"file": ("entry-exit.csv", csv_with_exit, "text/csv")},
+        headers=auth_headers,
+    )
+    import_id = import_response.json()["id"]
+
+    confirm_response = client.post(
+        f"/api/v1/biometric-imports/{import_id}/confirmation",
+        headers=auth_headers,
+    )
+
+    assert confirm_response.status_code == 200
+    days = attendance_service.list_month(7, 2026, staff_member_id=1)
+    late_day = [day for day in days if day["attendance_date"] == "2026-07-04"][0]
+    assert late_day["status"] == "late"
+    assert late_day["late_minutes"] == 30
