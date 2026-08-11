@@ -108,6 +108,28 @@ class BiometricImportService:
         imp["status"] = "confirmed"
         imp["ok_rows"] = sum(1 for row in imp["rows"] if not row.get("skipped"))
         imp["error_rows"] = sum(1 for row in imp["rows"] if row.get("skipped"))
+
+        from app.services.attendance_service import attendance_service
+        for row in imp["rows"]:
+            if row.get("skipped") or not row.get("staff_member_id"):
+                continue
+            marked_at_str = row["marked_at"]
+            date_part, time_part = marked_at_str.split(" ", 1)
+
+            hours, minutes, _ = map(int, time_part.split(":"))
+            entry_minutes = hours * 60 + minutes
+            standard_minutes = 8 * 60
+
+            late = max(0, entry_minutes - standard_minutes)
+            status = "late" if late > 0 else "present"
+
+            attendance_service.upsert_day(
+                staff_member_id=row["staff_member_id"],
+                attendance_date=date_part,
+                status=status,
+                late_minutes=late,
+            )
+
         return deepcopy(imp)
 
     def cancel(self, import_id: int, reason: str) -> dict[str, Any]:

@@ -118,3 +118,49 @@ def test_patch_and_cancel_state_conflicts(auth_headers: dict[str, str]) -> None:
 
     assert cancel_draft_response.status_code == 409
     assert cancel_draft_response.json() == {"detail": "Import is not confirmed"}
+
+
+def test_confirm_creates_attendance_days(auth_headers: dict[str, str]) -> None:
+    client = TestClient(app)
+    import_id = create_import(client, auth_headers).json()["id"]
+
+    client.patch(
+        f"/api/v1/biometric-imports/{import_id}/rows/2",
+        json={"action": "register_new"},
+        headers=auth_headers,
+    )
+
+    confirm_response = client.post(
+        f"/api/v1/biometric-imports/{import_id}/confirmation",
+        headers=auth_headers,
+    )
+    assert confirm_response.status_code == 200
+
+    from app.services.attendance_service import attendance_service
+    days = attendance_service.list_month(7, 2026)
+    assert len(days) == 2
+    assert days[0]["attendance_date"] == "2026-07-01"
+    assert days[0]["status"] in {"present", "late"}
+
+
+def test_confirm_calculates_tardanzas_correctly(auth_headers: dict[str, str]) -> None:
+    client = TestClient(app)
+    csv_late = (
+        "dni,last_names,first_names,marked_at,mark_type\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-03 08:25:00,entry\n"
+    )
+    import_response = client.post(
+        "/api/v1/biometric-imports",
+        files={"file": ("late.csv", csv_late, "text/csv")},
+        headers=auth_headers,
+    )
+    import_id = import_response.json()["id"]
+    client.post(f"/api/v1/biometric-imports/{import_id}/confirmation", headers=auth_headers)
+
+    from app.services.attendance_service import attendance_service
+    days = attendance_service.list_month(7, 2026, staff_member_id=1)
+    late_day = [d for d in days if d["attendance_date"] == "2026-07-03"][0]
+    assert late_day["status"] == "late"
+    assert late_day["late_minutes"] == 25
+
+
