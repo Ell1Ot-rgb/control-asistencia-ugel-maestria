@@ -209,21 +209,52 @@ select {
   display: none;
 }
 
+.logo {
+  align-items: center;
+  background: var(--primary);
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.sidebar-brand span {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
 .main {
   display: flex;
   flex: 1;
   flex-direction: column;
   margin-left: 0;
   min-height: 100vh;
+  min-width: 0;
 }
 
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
   position: sticky;
   top: 0;
   z-index: 40;
   box-shadow: var(--shadow);
+}
+
+.header > div,
+.header > nav {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .user-info {
@@ -253,6 +284,7 @@ select {
 .content {
   flex: 1;
   max-width: 1400px;
+  min-width: 0;
   padding: 16px 20px;
   width: 100%;
   margin: 0 auto;
@@ -286,6 +318,33 @@ select {
   padding: 12px 16px;
 }
 
+.filters.vertical {
+  align-items: stretch;
+  display: block;
+  padding: 0;
+}
+
+.filters.vertical .form-field {
+  max-width: none;
+}
+
+.filters .form-field {
+  margin-bottom: 0;
+  max-width: 150px;
+  min-width: 110px;
+}
+
+.filters .form-field.grow {
+  flex: 1;
+  max-width: 260px;
+  min-width: 180px;
+}
+
+.filter-actions {
+  align-items: center;
+  display: flex;
+}
+
 .kpi-grid {
   display: grid;
   gap: 12px;
@@ -302,6 +361,10 @@ select {
 }
 
 .kpi-card {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 16px;
 }
 
@@ -314,8 +377,10 @@ select {
 
 .kpi-card .value {
   color: var(--text);
+  display: block;
   font-size: 24px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .kpi-card .trend {
@@ -342,6 +407,170 @@ select {
 
 .card-body {
   padding: 16px;
+}
+
+.table-responsive {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.data-table {
+  min-width: 100%;
+  width: max-content;
+}
+
+th {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+td {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dropzone {
+  background: var(--primary-soft);
+  border: 1.5px dashed #93c5fd;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  display: grid;
+  font-size: 13px;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.dropzone strong {
+  color: var(--primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  height: 22px;
+  padding: 0 8px;
+}
+
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.attendance-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 9fr) minmax(180px, 1fr);
+}
+
+.attendance-grid,
+.report-preview {
+  min-width: 0;
+}
+
+.attendance-panel {
+  min-width: 180px;
+}
+
+.panel-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+}
+
+.form-grid .wide {
+  grid-column: span 1;
+}
+
+.report-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+@media (max-width: 1023px) {
+  .kpi-grid.compact,
+  .attendance-layout,
+  .report-layout,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-filter .btn + .btn {
+  margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+  .content {
+    padding: 16px 12px;
+  }
+
+  .header > div:first-child {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .header > div:first-child > div:first-child {
+    flex: 1 1 150px;
+    min-width: 0;
+  }
+
+  .header > div:first-child > div:last-child {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .header > div:first-child {
+    padding: 0 12px;
+  }
+
+  .header > nav {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .kpi-card {
+    padding: 14px;
+  }
 }
 
 @media (min-width: 1024px) {
