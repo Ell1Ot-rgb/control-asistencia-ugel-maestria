@@ -19,3 +19,6 @@ coverage/
 htmlcov/
 .DS_Store
 *.log
+.codegraph/
+uploads/
+
