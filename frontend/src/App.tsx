@@ -70,6 +70,16 @@ type BiometricImport = {
   }>;
 };
 
+type InconsistencyItem = {
+  id: number;
+  staff_member_id: number;
+  rule_code: string;
+  description: string;
+  attendance_date: string;
+  status: string;
+  resolution_type: string | null;
+};
+
 type JustificationItem = {
   id: number;
   staff_member_id: number;
@@ -172,15 +182,13 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
   };
 
   return (
-    <div className="login-shell">
-      <div className="login-card card">
-        <div className="card-header border-none">
-          <p className="kicker">RSG N.° 326-2017-MINEDU</p>
-          <h1>Control de Asistencia Biometria</h1>
-          <p className="subtitle">CHIQUISTRUKIS · Institución Educativa</p>
-        </div>
-        <form onSubmit={submit} className="card-body form-stack">
-          {error && <div className="alert alert-error">{error}</div>}
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">C</div>
+        <h1>Control de Asistencia Biometria</h1>
+        <p className="subtitle">CHIQUISTRUKIS · UGEL Control (RSG N.° 326-2017-MINEDU)</p>
+        <form onSubmit={submit} className="form-stack">
+          {error && <div className="alert-danger">{error}</div>}
           <label className="form-field">
             <span>Usuario</span>
             <input
@@ -201,12 +209,11 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
             />
           </label>
 
-          <div className="callout">
-            <strong>Credencial demo disponible:</strong>
-            <code>director.demo / Demo12345</code>
+          <div className="alert alert-info" style={{ fontSize: "12px", margin: "12px 0" }}>
+            <strong>Credencial demo disponible:</strong> <code>director.demo / Demo12345</code>
           </div>
 
-          <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+          <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
         </form>
@@ -219,17 +226,18 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
   const location = useLocation();
 
   return (
-    <div className="app-shell">
+    <div className="app">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-logo">C</span>
-          <div className="brand-text">
+        <div className="sidebar-brand">
+          <div className="logo">C</div>
+          <span>
             <strong>CHIQUISTRUKIS</strong>
-            <small>UGEL Control</small>
-          </div>
+            <br />
+            <small style={{ color: "#94a3b8" }}>UGEL Control</small>
+          </span>
         </div>
 
-        <nav className="nav-group">
+        <nav className="sidebar-nav">
           {navigationItems.map((item) => (
             <NavLink
               key={item.to}
@@ -244,30 +252,37 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
           ))}
         </nav>
 
-        <div className="user-box">
-          <div className="user-avatar">{session.username[0]?.toUpperCase()}</div>
+        <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div className="user-info">
-            <strong>{session.username}</strong>
-            <small>{session.role}</small>
+            <div className="user-avatar">{session.username[0]?.toUpperCase()}</div>
+            <div className="user-meta">
+              <strong>{session.username}</strong>
+              <div className="role">{session.role}</div>
+            </div>
           </div>
           <button
-            className="btn btn-icon"
+            className="btn btn-ghost btn-sm"
             onClick={onLogout}
             type="button"
             title="Cerrar sesión"
+            style={{ color: "#ef4444" }}
           >
-            X
+            Salir
           </button>
         </div>
       </aside>
 
-      <main className="main-content">
-        <header className="topbar">
-          <span className="location-path">{location.pathname}</span>
-          <span className="badge badge-success">Conectado</span>
+      <div className="main">
+        <header className="header">
+          <div className="header-left">{location.pathname}</div>
+          <div className="header-right">
+            <span className="badge badge-success" style={{ background: "#dcfce7", color: "#15803d", padding: "4px 8px", borderRadius: "4px", fontSize: "12px" }}>
+              ● Backend Conectado
+            </span>
+          </div>
         </header>
 
-        <div className="content-body">
+        <main className="content">
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/personal" element={<StaffPage />} />
@@ -277,8 +292,8 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
             <Route path="/reportes" element={<ReportsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
@@ -286,10 +301,8 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
 function PageHeader({ title, description }: { title: string; description: string }) {
   return (
     <header className="page-header">
-      <div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
+      <h1 className="page-title">{title}</h1>
+      <p className="page-desc">{description}</p>
     </header>
   );
 }
@@ -312,9 +325,9 @@ function Filters({
   onSearchChange?: (s: string) => void;
 }) {
   return (
-    <div className={`filter-bar ${vertical ? "vertical" : ""}`}>
+    <div className={`filters ${vertical ? "vertical" : ""}`}>
       {showSearch && (
-        <label className="form-field">
+        <label className="form-field grow">
           <span>Buscar</span>
           <input
             type="text"
@@ -360,9 +373,9 @@ function Filters({
 function KpiCard({ label, value, trend }: { label: string; value: string | number; trend?: string }) {
   return (
     <div className="kpi-card">
-      <span className="kpi-label">{label}</span>
-      <span className="kpi-value">{value}</span>
-      {trend && <span className="kpi-trend">{trend}</span>}
+      <div className="label">{label}</div>
+      <div className="value">{value}</div>
+      {trend && <div className="trend">{trend}</div>}
     </div>
   );
 }
@@ -370,26 +383,26 @@ function KpiCard({ label, value, trend }: { label: string; value: string | numbe
 function DataTable({ columns, rows, emptyText = "Sin registros" }: { columns: string[]; rows: (string | number)[][]; emptyText?: string }) {
   return (
     <div className="table-responsive">
-      <table className="data-table">
+      <table className="data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
         <thead>
-          <tr>
+          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
             {columns.map((col, idx) => (
-              <th key={idx}>{col}</th>
+              <th key={idx} style={{ padding: "10px 12px", fontWeight: "600" }}>{col}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="text-center py-4">
+              <td colSpan={columns.length} style={{ textAlign: "center", padding: "16px", color: "#64748b" }}>
                 {emptyText}
               </td>
             </tr>
           ) : (
             rows.map((row, rIdx) => (
-              <tr key={rIdx}>
+              <tr key={rIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
                 {row.map((cell, cIdx) => (
-                  <td key={cIdx}>{cell}</td>
+                  <td key={cIdx} style={{ padding: "10px 12px" }}>{cell}</td>
                 ))}
               </tr>
             ))
@@ -418,7 +431,7 @@ function DashboardPage() {
         title="Dashboard de Asistencia"
         description="Resumen de indicadores para la UGEL (RSG N.° 326-2017-MINEDU)"
       />
-      <div className="dashboard-grid">
+      <div className="kpi-grid">
         <KpiCard
           label="Personal Activo"
           value={indicators?.active_staff_members ?? "-"}
@@ -440,7 +453,7 @@ function DashboardPage() {
           trend="En minutos"
         />
       </div>
-      <section className="card mt-4">
+      <section className="card">
         <div className="card-header">Cargas Biométricas Recientes</div>
         <DataTable
           columns={["ID", "Archivo", "Estado", "Total Filas", "Inicio", "Fin"]}
@@ -518,20 +531,20 @@ function StaffPage() {
         title="Gestión de Personal"
         description="Registro activo de docentes y auxiliares vinculados a la IE"
       />
-      <div className="actions-bar mb-3">
+      <div className="filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Filters showSearch onSearchChange={setSearch} />
         <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>
           + Nuevo Personal
         </button>
       </div>
 
-      {msg && <div className="alert alert-info">{msg}</div>}
+      {msg && <div className="alert alert-info" style={{ padding: "10px", margin: "10px 0", background: "#dbeafe" }}>{msg}</div>}
 
       {showModal && (
-        <div className="modal-backdrop">
-          <div className="modal-card card">
-            <div className="card-header">Registrar Docente / Auxiliar</div>
-            <form onSubmit={handleCreate} className="card-body form-stack">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="card" style={{ maxWidth: "450px", width: "100%", padding: "20px" }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: "18px" }}>Registrar Docente / Auxiliar</h2>
+            <form onSubmit={handleCreate} className="form-stack">
               <label className="form-field">
                 <span>DNI</span>
                 <input
@@ -579,7 +592,7 @@ function StaffPage() {
                   <option value="CAS">CAS</option>
                 </select>
               </label>
-              <div className="actions mt-3">
+              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
                 <button className="btn btn-primary" type="submit">
                   Guardar
                 </button>
@@ -679,58 +692,58 @@ function ImportPage() {
         title="Carga Biométrica"
         description="Importación de marcas, validación de DNI y consolidación mensual"
       />
-      {message && <div className="alert alert-info">{message}</div>}
+      {message && <div className="alert alert-info" style={{ padding: "10px", marginBottom: "16px", background: "#dbeafe" }}>{message}</div>}
 
       <section className="card">
         <div className="card-header">Subir Marcaciones (CSV)</div>
-        <div className="card-body form-stack">
-          <div className="dropzone">
+        <div className="card-body">
+          <div style={{ border: "2px dashed #cbd5e1", borderRadius: "8px", padding: "24px", textAlign: "center", background: "#fafbfc" }}>
             <input
               type="file"
               accept=".csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             {file ? (
-              <strong>Archivo seleccionado: {file.name}</strong>
+              <div style={{ marginTop: "8px" }}><strong>Archivo seleccionado: {file.name}</strong></div>
             ) : (
-              <span>Selecciona o arrastra tu archivo .csv aquí</span>
+              <div style={{ color: "#64748b", marginTop: "8px" }}>Selecciona un archivo .csv con marcas del reloj biométrico</div>
             )}
           </div>
-          <div className="actions mt-3">
+          <div style={{ marginTop: "16px" }}>
             <button
               className="btn btn-primary"
               type="button"
               onClick={handleUpload}
               disabled={loading || !file}
             >
-              {loading ? "Subiendo..." : "Subir archivo"}
+              {loading ? "Subiendo..." : "Subir archivo CSV"}
             </button>
           </div>
         </div>
       </section>
 
       {currentImport && (
-        <section className="card mt-4">
+        <section className="card" style={{ marginTop: "16px" }}>
           <div className="card-header">
-            Resumen de Carga #{currentImport.id} - Status:{" "}
-            <span className="badge badge-warning">{currentImport.status}</span>
+            Resumen de Carga #{currentImport.id} - Estado: <span className="badge">{currentImport.status}</span>
           </div>
           <div className="card-body">
-            <div className="dashboard-grid">
+            <div className="kpi-grid">
               <KpiCard label="Archivo" value={currentImport.file_name} />
               <KpiCard label="Total Filas" value={currentImport.total_rows} />
               <KpiCard label="DNI Coincidentes" value={currentImport.matched_rows} />
               <KpiCard label="Nuevos DNI" value={currentImport.new_rows} />
             </div>
 
-            <div className="actions mt-4">
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
               {currentImport.status === "draft" && (
                 <>
                   <button
-                    className="btn btn-success"
+                    className="btn btn-primary"
                     type="button"
                     onClick={handleConfirm}
                     disabled={loading}
+                    style={{ background: "#16a34a" }}
                   >
                     Confirmar e Impactar Asistencia
                   </button>
@@ -756,12 +769,18 @@ function AttendancePage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
   const [annexData, setAnnexData] = useState<any>(null);
+  const [inconsistencies, setInconsistencies] = useState<InconsistencyItem[]>([]);
 
   useEffect(() => {
     apiClient
       .get("/api/v1/reports/annex-03", { params: { month, year } })
       .then((res) => setAnnexData(res.data))
       .catch(() => setAnnexData(null));
+
+    apiClient
+      .get<InconsistencyItem[]>("/api/v1/inconsistencies")
+      .then((res) => setInconsistencies(res.data))
+      .catch(() => setInconsistencies([]));
   }, [month, year]);
 
   const rows =
@@ -776,27 +795,46 @@ function AttendancePage() {
     <>
       <PageHeader
         title="Asistencia Consolidada"
-        description="Grilla mensual por personal docente y auxiliar"
+        description="Grilla mensual por personal docente y auxiliar (Anexo 03)"
       />
       <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-      <div className="attendance-layout mt-3">
-        <section className="card attendance-grid">
-          <div className="card-header">
-            Anexo 03 · Período {month}/{year}
+
+      <section className="card" style={{ marginTop: "16px" }}>
+        <div className="card-header">
+          Anexo 03 · Período {month}/{year}
+        </div>
+        <DataTable
+          columns={["Personal", "DNI", "Días Registrados", "Detalle"]}
+          rows={rows}
+          emptyText="No existen marcaciones consolidadas para este período"
+        />
+      </section>
+
+      {inconsistencies.length > 0 && (
+        <section className="card" style={{ marginTop: "16px" }}>
+          <div className="card-header" style={{ color: "#b91c1c" }}>
+            Inconsistencias Detectadas ({inconsistencies.length})
           </div>
           <DataTable
-            columns={["Personal", "DNI", "Días Registrados", "Detalle"]}
-            rows={rows}
-            emptyText="No existen marcaciones consolidadas para este período"
+            columns={["ID", "Personal ID", "Regla", "Descripción", "Fecha", "Estado"]}
+            rows={inconsistencies.map((inc) => [
+              inc.id,
+              inc.staff_member_id,
+              inc.rule_code,
+              inc.description,
+              inc.attendance_date,
+              inc.status,
+            ])}
           />
         </section>
-      </div>
+      )}
     </>
   );
 }
 
 function JustificationsPage() {
-  const [staffId, setStaffId] = useState("1");
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [staffId, setStaffId] = useState("");
   const [startDate, setStartDate] = useState("2026-07-10");
   const [endDate, setEndDate] = useState("2026-07-12");
   const [normCode, setNormCode] = useState("LG");
@@ -806,16 +844,26 @@ function JustificationsPage() {
   const [msg, setMsg] = useState("");
   const [justifications, setJustifications] = useState<JustificationItem[]>([]);
 
+  useEffect(() => {
+    apiClient
+      .get<StaffMember[]>("/api/v1/staff-members", { params: { is_active: "Y" } })
+      .then((res) => {
+        setStaffMembers(res.data);
+        if (res.data.length > 0) {
+          setStaffId(String(res.data[0].id));
+        }
+      })
+      .catch(() => setStaffMembers([]));
+
+    loadJustifications();
+  }, []);
+
   const loadJustifications = () => {
     apiClient
       .get<JustificationItem[]>("/api/v1/justifications")
       .then((res) => setJustifications(res.data))
       .catch(() => setJustifications([]));
   };
-
-  useEffect(() => {
-    loadJustifications();
-  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -851,19 +899,20 @@ function JustificationsPage() {
         title="Justificaciones y Permisos"
         description="Gestión de licencias con/sin goce y adjunto de sustentos"
       />
-      {msg && <div className="alert alert-info">{msg}</div>}
+      {msg && <div className="alert alert-info" style={{ padding: "10px", marginBottom: "16px", background: "#dbeafe" }}>{msg}</div>}
 
       <section className="card">
         <div className="card-header">Nueva Justificación</div>
-        <form onSubmit={handleSubmit} className="card-body form-grid">
+        <form onSubmit={handleSubmit} className="card-body" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
           <label className="form-field">
-            <span>ID Personal</span>
-            <input
-              type="number"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              required
-            />
+            <span>Personal Docente / Auxiliar</span>
+            <select value={staffId} onChange={(e) => setStaffId(e.target.value)} required>
+              {staffMembers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  [{s.dni}] {s.last_names}, {s.first_names} ({s.job_title})
+                </option>
+              ))}
+            </select>
           </label>
           <label className="form-field">
             <span>Fecha Inicio</span>
@@ -884,7 +933,7 @@ function JustificationsPage() {
             />
           </label>
           <label className="form-field">
-            <span>Código Norma</span>
+            <span>Código Norma RSG N.° 326</span>
             <select value={normCode} onChange={(e) => setNormCode(e.target.value)}>
               <option value="LG">LG - Licencia con Goce</option>
               <option value="LS">LS - Licencia sin Goce</option>
@@ -901,29 +950,31 @@ function JustificationsPage() {
               <option value="N">No (Sin Goce)</option>
             </select>
           </label>
-          <label className="form-field wide">
+          <label className="form-field" style={{ gridColumn: "1 / -1" }}>
             <span>Motivo / Detalle</span>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Descripción del motivo..."
+              placeholder="Descripción del motivo de la licencia..."
             />
           </label>
-          <label className="form-field wide">
+          <label className="form-field" style={{ gridColumn: "1 / -1" }}>
             <span>Sustento Adjunto (PDF/Imagen)</span>
             <input
               type="file"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
           </label>
-          <button className="btn btn-primary" type="submit">
-            Registrar Justificación
-          </button>
+          <div style={{ gridColumn: "1 / -1", marginTop: "8px" }}>
+            <button className="btn btn-primary" type="submit">
+              Registrar Justificación
+            </button>
+          </div>
         </form>
       </section>
 
-      <section className="card mt-4">
+      <section className="card" style={{ marginTop: "16px" }}>
         <div className="card-header">Justificaciones Registradas</div>
         <DataTable
           columns={["ID", "Personal ID", "Código", "Inicio", "Fin", "Goce", "Estado", "Sustento"]}
@@ -959,27 +1010,39 @@ function ReportsPage() {
     fetchReports();
   }, [month, year]);
 
+  const reportRows =
+    annex04?.rows?.map((r: any) => [
+      r.full_name,
+      r.dni,
+      r.job_title ?? "Docente",
+      r.summary?.present ?? 0,
+      r.summary?.late ?? 0,
+      r.summary?.absent ?? 0,
+      r.summary?.justified ?? 0,
+      r.summary?.absent > 0 ? `${r.summary.absent} días` : "Sin descuento",
+    ]) ?? [];
+
   return (
     <>
       <PageHeader
         title="Reportes Oficiales UGEL"
         description="Generación de Anexo 03 y Anexo 04 conforme a la RSG N.° 326-2017-MINEDU"
       />
-      <div className="report-layout">
-        <section className="card report-filter">
+      <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", gap: "16px" }}>
+        <section className="card">
           <div className="card-header">Período de Reporte</div>
-          <div className="card-body form-stack">
+          <div className="card-body">
             <Filters vertical month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-            <button className="btn btn-primary btn-block" type="button" onClick={fetchReports}>
+            <button className="btn btn-primary btn-block" style={{ marginTop: "16px" }} type="button" onClick={fetchReports}>
               Actualizar Consolidado
             </button>
           </div>
         </section>
 
-        <section className="card report-preview">
+        <section className="card">
           <div className="card-header">Consolidado Anexo 04 · {month}/{year}</div>
           <div className="card-body">
-            <div className="dashboard-grid mb-4">
+            <div className="kpi-grid" style={{ marginBottom: "16px" }}>
               <KpiCard label="Personal Total" value={annex04?.staff_count ?? 0} />
               <KpiCard label="Asistencias (A)" value={annex04?.totals?.present ?? 0} />
               <KpiCard label="Tardanzas (T)" value={annex04?.totals?.late ?? 0} />
@@ -987,10 +1050,11 @@ function ReportsPage() {
               <KpiCard label="Justificadas (J)" value={annex04?.totals?.justified ?? 0} />
             </div>
 
-            <div className="callout callout-info">
-              <strong>Formato Oficial UGEL:</strong>
-              <p>Los reportes consolidan la información directamente desde `attendance_day`.</p>
-            </div>
+            <DataTable
+              columns={["Personal", "DNI", "Cargo", "A (Días)", "T (Días)", "I (Inasistencias)", "J (Justificadas)", "Descuento Sugerido"]}
+              rows={reportRows}
+              emptyText="Sin datos consolidados para este período"
+            />
           </div>
         </section>
       </div>
