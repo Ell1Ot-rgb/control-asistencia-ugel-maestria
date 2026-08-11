@@ -55,6 +55,34 @@ class ReportService:
         active_staff = staff_member_service.list(is_active="Y")
         attendance_rows = attendance_service.list_month(month, year)
         totals = Counter(row["status"] for row in attendance_rows)
+
+        rows_by_staff: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        for row in attendance_rows:
+            rows_by_staff[row["staff_member_id"]].append(row)
+
+        detail_rows = []
+        for staff_member in active_staff:
+            staff_member_id = staff_member["id"]
+            days = rows_by_staff.get(staff_member_id, [])
+            summary = Counter(day["status"] for day in days)
+            detail_rows.append(
+                {
+                    "staff_member_id": staff_member_id,
+                    "dni": staff_member.get("dni"),
+                    "full_name": self._full_name(staff_member),
+                    "job_title": staff_member.get("job_title"),
+                    "employment_status": staff_member.get("employment_status"),
+                    "summary": {
+                        "present": summary["present"],
+                        "late": summary["late"],
+                        "absent": summary["absent"],
+                        "justified": summary["justified"],
+                        "leave": summary["leave"],
+                        "permission": summary["permission"],
+                    },
+                }
+            )
+
         return {
             "institution": DEMO_INSTITUTION,
             "period": {"month": month, "year": year},
@@ -68,6 +96,7 @@ class ReportService:
                 "leave": totals["leave"],
                 "permission": totals["permission"],
             },
+            "rows": detail_rows,
         }
 
     def _staff_member(self, staff_member_id: int) -> dict[str, Any]:

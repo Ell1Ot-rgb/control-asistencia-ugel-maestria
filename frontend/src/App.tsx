@@ -653,6 +653,27 @@ function ImportPage() {
     }
   };
 
+  const handleResolveNewRows = async () => {
+    if (!currentImport || !currentImport.rows) return;
+    setLoading(true);
+    setMessage("Registrando nuevos DNI en el sistema...");
+    try {
+      const unresolvedRows = currentImport.rows.filter(r => !r.resolved && !r.skipped);
+      for (const row of unresolvedRows) {
+        await apiClient.patch(`/api/v1/biometric-imports/${currentImport.id}/rows/${row.order}`, {
+          action: "register_new",
+        });
+      }
+      const updated = await apiClient.get<BiometricImport>(`/api/v1/biometric-imports/${currentImport.id}`);
+      setCurrentImport(updated.data);
+      setMessage("¡Todos los DNI nuevos fueron registrados exitosamente! Ya puedes confirmar la carga.");
+    } catch {
+      setMessage("Error al registrar algunos DNI de la carga");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!currentImport) return;
     setLoading(true);
@@ -738,11 +759,22 @@ function ImportPage() {
             <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
               {currentImport.status === "draft" && (
                 <>
+                  {currentImport.new_rows > 0 && (
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={handleResolveNewRows}
+                      disabled={loading}
+                      style={{ background: "#2563eb" }}
+                    >
+                      Auto-Registrar {currentImport.new_rows} DNI Nuevos
+                    </button>
+                  )}
                   <button
                     className="btn btn-primary"
                     type="button"
                     onClick={handleConfirm}
-                    disabled={loading}
+                    disabled={loading || currentImport.new_rows > 0}
                     style={{ background: "#16a34a" }}
                   >
                     Confirmar e Impactar Asistencia
