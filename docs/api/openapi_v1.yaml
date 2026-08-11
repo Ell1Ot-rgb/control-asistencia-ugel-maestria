@@ -1,0 +1,478 @@
+openapi: 3.0.3
+info:
+  title: CHIQUISTRUKIS API
+  version: 1.0.0
+  description: >
+    Control de asistencia biométrica. Auth Bearer (Redis).
+    Paths in English /api/v1 (SB-04). Domain rules from Tema 5.
+servers:
+  - url: http://127.0.0.1:8000
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail: { type: string }
+    AccessMap:
+      type: object
+      properties:
+        modules:
+          type: array
+          items: { type: string }
+        operations:
+          type: object
+          additionalProperties: { type: boolean }
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        role: { type: string }
+        username: { type: string }
+        access: { $ref: '#/components/schemas/AccessMap' }
+    StaffMember:
+      type: object
+      properties:
+        id: { type: integer }
+        dni: { type: string, minLength: 8, maxLength: 8 }
+        last_names: { type: string }
+        first_names: { type: string }
+        job_title: { type: string }
+        employment_status: { type: string }
+        is_active: { type: string, enum: [Y, N] }
+    BiometricImport:
+      type: object
+      properties:
+        id: { type: integer }
+        file_name: { type: string }
+        status: { type: string, enum: [draft, confirmed, cancelled] }
+        period_start: { type: string, format: date }
+        period_end: { type: string, format: date }
+        total_rows: { type: integer }
+        matched_rows: { type: integer }
+        new_rows: { type: integer }
+        ok_rows: { type: integer }
+        error_rows: { type: integer }
+    ImportRow:
+      type: object
+      properties:
+        row_id: { type: integer }
+        order: { type: integer }
+        dni: { type: string }
+        last_names: { type: string }
+        first_names: { type: string }
+        match: { type: string, enum: [matched, new] }
+        staff_member_id: { type: integer, nullable: true }
+    AttendanceDay:
+      type: object
+      properties:
+        id: { type: integer }
+        staff_member_id: { type: integer }
+        attendance_date: { type: string, format: date }
+        status: { type: string }
+        late_minutes: { type: integer }
+        justification_id: { type: integer, nullable: true }
+paths:
+  /api/v1/health:
+    get:
+      security: []
+      operationId: health
+      responses:
+        '200': { description: OK }
+  /api/v1/auth/sessions:
+    post:
+      security: []
+      operationId: startSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Token + access map
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401': { description: Invalid credentials }
+  /api/v1/auth/sessions/current:
+    get:
+      operationId: getCurrentSession
+      responses:
+        '200': { description: Session info }
+        '401': { description: Unauthorized }
+    delete:
+      operationId: endSession
+      responses:
+        '200': { description: Logged out }
+  /api/v1/staff-members:
+    get:
+      operationId: listStaffMembers
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: is_active
+          schema: { type: string, enum: [Y, N] }
+        - in: query
+          name: job_title
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StaffMember' }
+    post:
+      operationId: createStaffMember
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffMember' }
+      responses:
+        '201': { description: Created }
+  /api/v1/staff-members/{id}:
+    get:
+      operationId: getStaffMember
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+    put:
+      operationId: updateStaffMember
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffMember' }
+      responses:
+        '200': { description: Updated }
+  /api/v1/staff-members/{id}/deactivation:
+    post:
+      operationId: deactivateStaffMember
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Soft deactivated }
+  /api/v1/biometric-imports:
+    get:
+      operationId: listBiometricImports
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [draft, confirmed, cancelled] }
+        - in: query
+          name: month
+          schema: { type: integer }
+        - in: query
+          name: year
+          schema: { type: integer }
+      responses:
+        '200': { description: Import history }
+    post:
+      operationId: createBiometricImport
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Draft import with rows (matched/new)
+  /api/v1/biometric-imports/{id}:
+    get:
+      operationId: getBiometricImport
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Import + rows }
+  /api/v1/biometric-imports/{id}/rows/{rowId}:
+    patch:
+      operationId: updateImportRow
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: rowId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dni: { type: string }
+                last_names: { type: string }
+                first_names: { type: string }
+                action:
+                  type: string
+                  enum: [research, register_new, skip]
+      responses:
+        '200': { description: Row updated }
+        '409': { description: Not draft }
+  /api/v1/biometric-imports/{id}/confirmation:
+    post:
+      operationId: confirmBiometricImport
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Confirmed; consolidates attendance_day }
+        '400': { description: Unresolved new rows }
+        '409': { description: Not draft }
+  /api/v1/biometric-imports/{id}/cancellation:
+    post:
+      operationId: cancelBiometricImport
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Cancelled; reverts marks and recalculates }
+        '409': { description: Not confirmed }
+  /api/v1/inconsistencies:
+    get:
+      operationId: listInconsistencies
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: import_id
+          schema: { type: integer }
+      responses:
+        '200': { description: List }
+  /api/v1/inconsistencies/{id}/review:
+    post:
+      operationId: reviewInconsistency
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Marked reviewed }
+  /api/v1/inconsistencies/{id}/correction:
+    post:
+      operationId: correctInconsistency
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marked_at: { type: string, format: date-time }
+                mark_type: { type: string, enum: [entry, exit] }
+      responses:
+        '200': { description: Corrected }
+  /api/v1/attendance-records:
+    get:
+      operationId: listAttendanceRecords
+      parameters:
+        - in: query
+          name: month
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: year
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: staff_member_id
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AttendanceDay' }
+  /api/v1/attendance-records/days:
+    put:
+      operationId: updateAttendanceDay
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_member_id, attendance_date, status]
+              properties:
+                staff_member_id: { type: integer }
+                attendance_date: { type: string, format: date }
+                status: { type: string }
+                late_minutes: { type: integer }
+                norm_code: { type: string }
+                justification_id: { type: integer, nullable: true }
+      responses:
+        '200': { description: Day updated }
+  /api/v1/justifications:
+    get:
+      operationId: listJustifications
+      parameters:
+        - in: query
+          name: staff_member_id
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, cancelled] }
+      responses:
+        '200': { description: List }
+    post:
+      operationId: createJustification
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                staff_member_id: { type: integer }
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                norm_code: { type: string }
+                with_pay: { type: string, enum: [Y, N] }
+                reason: { type: string }
+                support_file: { type: string, format: binary }
+      responses:
+        '201': { description: Created }
+  /api/v1/justifications/{id}:
+    put:
+      operationId: updateJustification
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Updated }
+  /api/v1/justifications/{id}/cancellation:
+    post:
+      operationId: cancelJustification
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Cancelled }
+  /api/v1/biometric-marks/{id}/correction:
+    post:
+      operationId: correctBiometricMark
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marked_at: { type: string, format: date-time }
+                mark_type: { type: string, enum: [entry, exit] }
+      responses:
+        '200': { description: Corrected with audit }
+  /api/v1/reports/annex-03:
+    get:
+      operationId: generateAnnex03
+      parameters:
+        - in: query
+          name: month
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: year
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: format
+          schema: { type: string, enum: [json, xlsx], default: xlsx }
+      responses:
+        '200': { description: Annex 03 detailed }
+  /api/v1/reports/annex-04:
+    get:
+      operationId: generateAnnex04
+      parameters:
+        - in: query
+          name: month
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: year
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: format
+          schema: { type: string, enum: [json, xlsx], default: xlsx }
+      responses:
+        '200': { description: Annex 04 consolidated }
+  /api/v1/dashboard/indicators:
+    get:
+      operationId: getDashboardIndicators
+      parameters:
+        - in: query
+          name: month
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: year
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: KPIs + mark distribution + recent imports }

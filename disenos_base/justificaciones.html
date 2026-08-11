@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Justificaciones – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item active" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Justificaciones</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Justificaciones</h1>
+          <p class="page-desc">Licencias, permisos y faltas justificadas (RSG 326-2017-MINEDU)</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Nueva justificación</div>
+          <div class="card-body">
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Empleado</label>
+                <select>
+                  <option>Seleccionar...</option>
+                  <option>Quispe Mamani, María Elena</option>
+                  <option>Huamán Rojas, Carlos Alberto</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Código norma</label>
+                <select>
+                  <option>J – Justificado</option>
+                  <option>LS – Licencia con goce</option>
+                  <option>LG – Licencia sin goce</option>
+                  <option>P – Permiso</option>
+                  <option>H – Huelga / Paro</option>
+                  <option>F – Falta</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Fecha inicio</label>
+                <input type="date" value="2026-07-10" />
+              </div>
+              <div class="form-group">
+                <label>Fecha fin</label>
+                <input type="date" value="2026-07-11" />
+              </div>
+              <div class="form-group">
+                <label>Con goce</label>
+                <select><option>Sí</option><option>No</option></select>
+              </div>
+              <div class="form-group">
+                <label>Archivo de sustento</label>
+                <input type="file" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Motivo</label>
+              <textarea rows="2" placeholder="Descripción breve..."></textarea>
+            </div>
+            <div class="filter-actions">
+              <button type="button" class="btn btn-sm btn-primary">Guardar</button>
+              <button type="button" class="btn btn-sm btn-ghost">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Historial</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empleado</th><th>Inicio</th><th>Fin</th><th>Código</th>
+                  <th>Goce</th><th>Estado</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Quispe Mamani, M.</td><td>10/07/2026</td><td>11/07/2026</td><td>LS</td><td>Sí</td>
+                  <td><span class="badge badge-success">Activa</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-secondary">Editar</button>
+                    <button class="btn btn-sm btn-danger-outline">Anular</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Huamán Rojas, C.</td><td>05/07/2026</td><td>05/07/2026</td><td>P</td><td>No</td>
+                  <td><span class="badge badge-muted">Anulada</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-ghost">Ver</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

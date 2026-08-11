@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Personal – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item active" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Personal</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Personal</h1>
+          <p class="page-desc">Docentes y auxiliares de la institución</p>
+        </div>
+
+        <div class="filters">
+          <div class="form-group grow">
+            <label>Buscar</label>
+            <input type="search" placeholder="DNI o nombre..." />
+          </div>
+          <div class="form-group">
+            <label>Cargo</label>
+            <select><option>Todos</option><option>Docente</option><option>Auxiliar</option></select>
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select><option>Activos</option><option>Inactivos</option><option>Todos</option></select>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="btn btn-sm btn-primary">Buscar</button>
+            <button type="button" class="btn btn-sm btn-secondary">+ Nuevo</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>DNI</th><th>Apellidos</th><th>Nombres</th><th>Cargo</th>
+                  <th>Condición</th><th>Estado</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>45678912</td><td>Quispe Mamani</td><td>María Elena</td><td>Docente</td><td>Nombrado</td>
+                  <td><span class="badge badge-success">Activo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-secondary">Editar</button>
+                    <button class="btn btn-sm btn-ghost">Desactivar</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>71234567</td><td>Huamán Rojas</td><td>Carlos Alberto</td><td>Docente</td><td>Contratado</td>
+                  <td><span class="badge badge-success">Activo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-secondary">Editar</button>
+                    <button class="btn btn-sm btn-ghost">Desactivar</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>40112233</td><td>Flores Ilacopa</td><td>Leida Idalecia</td><td>Auxiliar</td><td>Nombrado</td>
+                  <td><span class="badge badge-success">Activo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-secondary">Editar</button>
+                    <button class="btn btn-sm btn-ghost">Desactivar</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>38990112</td><td>Ramos Halanoca</td><td>Cristian Reyscell</td><td>Docente</td><td>Contratado</td>
+                  <td><span class="badge badge-muted">Inactivo</span></td>
+                  <td class="actions">
+                    <button class="btn btn-sm btn-secondary">Editar</button>
+                    <button class="btn btn-sm btn-ghost">Activar</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

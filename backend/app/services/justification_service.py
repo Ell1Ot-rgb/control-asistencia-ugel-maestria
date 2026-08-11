@@ -1,0 +1,109 @@
+"""TEC-D07 — justifications with support file path."""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from datetime import date
+from typing import Any
+
+from app.services.attendance_service import attendance_service
+
+
+class JustificationNotFoundError(LookupError):
+    """Raised when a justification does not exist."""
+
+
+class JustificationValidationError(ValueError):
+    """Raised when justification data is invalid."""
+
+
+class JustificationService:
+    def __init__(self) -> None:
+        self._items: dict[int, dict[str, Any]] = {}
+        self._seq = 0
+
+    def reset(self) -> None:
+        self._items = {}
+        self._seq = 0
+
+    def create(self, data: dict[str, Any]) -> dict[str, Any]:
+        payload = self._validated_payload(data)
+        self._seq += 1
+        item = {**payload, "id": self._seq, "status": "active"}
+        self._items[self._seq] = item
+        attendance_service.apply_justification_range(
+            justification_id=item["id"],
+            staff_member_id=item["staff_member_id"],
+            start_date=date.fromisoformat(item["start_date"]),
+            end_date=date.fromisoformat(item["end_date"]),
+        )
+        return deepcopy(item)
+
+    def update(self, justification_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        item = self._find(justification_id)
+        old_item = deepcopy(item)
+        payload = self._validated_payload(data)
+        item.update(payload)
+        attendance_service.cancel_justification(justification_id)
+        attendance_service.apply_justification_range(
+            justification_id=justification_id,
+            staff_member_id=item["staff_member_id"],
+            start_date=date.fromisoformat(item["start_date"]),
+            end_date=date.fromisoformat(item["end_date"]),
+        )
+        return {"old": old_item, "new": deepcopy(item)}
+
+    def list(
+        self, staff_member_id: int | None = None, status: str | None = None
+    ) -> list[dict[str, Any]]:
+        rows = list(self._items.values())
+        if staff_member_id:
+            rows = [
+                row for row in rows if row.get("staff_member_id") == staff_member_id
+            ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return [deepcopy(row) for row in rows]
+
+    def cancel(self, justification_id: int, reason: str) -> dict[str, Any]:
+        item = self._find(justification_id)
+        item["status"] = "cancelled"
+        item["cancel_reason"] = reason
+        attendance_service.cancel_justification(justification_id)
+        return deepcopy(item)
+
+    def _find(self, justification_id: int) -> dict[str, Any]:
+        try:
+            return self._items[justification_id]
+        except KeyError as exc:
+            raise JustificationNotFoundError(
+                f"Justification {justification_id} not found"
+            ) from exc
+
+    def _validated_payload(self, data: dict[str, Any]) -> dict[str, Any]:
+        start_date = self._parse_date(data["start_date"])
+        end_date = self._parse_date(data["end_date"])
+        if end_date < start_date:
+            raise JustificationValidationError("invalid_date_range")
+        with_pay = data.get("with_pay", "Y")
+        if with_pay not in {"Y", "N"}:
+            raise JustificationValidationError("invalid_with_pay")
+        return {
+            "staff_member_id": data["staff_member_id"],
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "norm_code": data["norm_code"],
+            "with_pay": with_pay,
+            "reason": data.get("reason"),
+            "support_file_path": data.get("support_file_path"),
+            "registered_by_id": data.get("registered_by_id"),
+        }
+
+    def _parse_date(self, value: str) -> date:
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise JustificationValidationError("invalid_date") from exc
+
+
+justification_service = JustificationService()

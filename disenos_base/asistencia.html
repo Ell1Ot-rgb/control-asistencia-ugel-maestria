@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asistencia – Control de Asistencia</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-bottom:12px;}
+    .legend span{display:inline-flex;align-items:center;gap:4px;}
+    .day-cell{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid transparent;}
+    .day-cell:hover{border-color:var(--primary);}
+    .day-A{background:var(--success-bg);color:var(--success);}
+    .day-T{background:var(--warning-bg);color:var(--warning);}
+    .day-I{background:var(--danger-bg);color:var(--danger);}
+    .day-J{background:var(--info-bg);color:var(--info);}
+    .day-focus{box-shadow:0 0 0 2px var(--primary);}
+    .row-selected td{background:#eff6ff !important;}
+    .asis-layout{display:flex;gap:16px;align-items:flex-start;}
+    .asis-grid{flex:1;min-width:0;}
+    .asis-panel{width:252px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);position:sticky;top:64px;}
+    .panel-head{padding:10px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;background:#fafbfc;}
+    .panel-body{padding:14px;}
+    .meta{font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.45;}
+    .meta strong{color:var(--text);font-size:13px;}
+    @media(max-width:1000px){.asis-layout{flex-direction:column;}.asis-panel{width:100%;position:static;}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">CA</div>
+        <span>Control de<br/>Asistencia</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="dashboard.html"><span class="icon">▦</span> Dashboard</a>
+        <a class="nav-item" href="personal.html"><span class="icon">👤</span> Personal</a>
+        <a class="nav-item" href="carga.html"><span class="icon">⬆</span> Carga biométrica</a>
+        <a class="nav-item active" href="asistencia.html"><span class="icon">📅</span> Asistencia</a>
+        <a class="nav-item" href="justificaciones.html"><span class="icon">📝</span> Justificaciones</a>
+        <a class="nav-item" href="reportes.html"><span class="icon">📊</span> Reportes</a>
+      </nav>
+      <div class="sidebar-footer">CHIQUISTRUKIS · MVP</div>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <div class="header-left">Asistencia</div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-avatar">WM</div>
+            <div class="user-meta">
+              <div>Wilberth Mollinedo</div>
+              <div class="role">Director</div>
+            </div>
+          </div>
+          <a href="login.html" class="btn btn-sm btn-ghost">Salir</a>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">Asistencia · vista Anexo 03</h1>
+          <p class="page-desc">Selecciona un día para editar estado o justificación en el panel</p>
+        </div>
+
+        <div class="filters">
+          <div class="form-group">
+            <label>Mes</label>
+            <select><option>Junio</option><option>Julio</option></select>
+          </div>
+          <div class="form-group">
+            <label>Año</label>
+            <select><option>2026</option></select>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="btn btn-sm btn-primary">Filtrar</button>
+            <a href="reportes.html" class="btn btn-sm btn-secondary">Reportes</a>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="day-cell day-A">A</i> Asistencia</span>
+          <span><i class="day-cell day-T">T</i> Tardanza</span>
+          <span><i class="day-cell day-I">I</i> Inasistencia</span>
+          <span><i class="day-cell day-J">J</i> Justificado</span>
+        </div>
+
+        <div class="asis-layout">
+          <div class="asis-grid">
+            <div class="card mb-0">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>DNI</th><th>Apellido</th><th>Nombre</th>
+                      <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>…</th><th>15</th><th>16</th><th>…</th><th>30</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-selected">
+                      <td>45678912</td><td>Quispe</td><td>María</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-T">T</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-J">J</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-I day-focus">I</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                    </tr>
+                    <tr>
+                      <td>71234567</td><td>Huamán</td><td>Carlos</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-T">T</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-T">T</span></td>
+                    </tr>
+                    <tr>
+                      <td>40112233</td><td>Flores</td><td>Leida</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-J">J</span></td>
+                      <td><span class="day-cell day-J">J</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td><span class="day-cell day-A">A</span></td>
+                      <td class="text-muted">…</td>
+                      <td><span class="day-cell day-A">A</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <aside class="asis-panel">
+            <div class="panel-head">Edición del día</div>
+            <div class="panel-body">
+              <div class="meta">
+                <strong>Quispe Mamani, María Elena</strong><br/>
+                DNI 45678912 · Docente
+              </div>
+              <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" value="2026-06-16" />
+              </div>
+              <div class="form-group">
+                <label>Estado</label>
+                <select>
+                  <option>Asistencia</option>
+                  <option>Tardanza</option>
+                  <option selected>Inasistencia</option>
+                  <option>Justificado</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Justificación</label>
+                <select>
+                  <option value="">Sin justificación</option>
+                  <option>J – Justificado</option>
+                  <option>LS – Licencia con goce</option>
+                  <option>P – Permiso</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Sustento</label>
+                <input type="file" />
+              </div>
+              <div class="filter-actions" style="margin-top:4px;">
+                <button type="button" class="btn btn-sm btn-primary">Guardar</button>
+                <a href="justificaciones.html" class="btn btn-sm btn-ghost">Ver justificaciones</a>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

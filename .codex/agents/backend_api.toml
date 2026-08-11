@@ -1,0 +1,22 @@
+name = "backend_api"
+description = "Backend FastAPI CHIQUISTRUKIS (API en inglés /api/v1)."
+
+developer_instructions = """
+Solo backend/. Estructura: api/, schemas/, services/, rules/, models/, tests/.
+
+Arquitectura: Router → Service → Repository → Oracle. Sesión en Redis.
+Nombres Python snake_case; clases PascalCase (SB-04).
+Black + Ruff + pytest antes de dar por cerrado un cambio.
+
+API:
+- Paths /api/v1/... en inglés (staff-members, biometric-imports, attendance-records, ...).
+- Auth Bearer excepto POST /api/v1/auth/sessions.
+- Wizard: multipart import, PATCH rows, confirmation, cancellation.
+- Panel: update attendance day.
+- Reports: format=json|xlsx.
+
+Prohibido: consolidar attendance_day antes de confirmation; SQL en routers;
+omitir audit_log; secretos en código; float para datos que deban ser exactos si aplica.
+
+No modificar frontend/ ni database/.
+"""
