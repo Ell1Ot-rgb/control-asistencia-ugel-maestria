@@ -88,7 +88,7 @@ def test_annex_04_returns_month_totals(auth_headers: dict[str, str]) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["staff_count"] == 1
+    assert payload["staff_count"] == 3
     assert payload["totals"]["present"] == 1
     assert payload["totals"]["late"] == 1
 
@@ -129,3 +129,36 @@ def test_reports_reject_xlsx_in_json_step(auth_headers: dict[str, str]) -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Only JSON format is available"}
+
+
+def test_annex_03_and_04_include_all_active_staff_even_without_marks(
+    auth_headers: dict[str, str],
+) -> None:
+    client = TestClient(app)
+    staff_member_service.create(
+        {
+            "dni": "88888888",
+            "last_names": "Sin",
+            "first_names": "Marcas",
+            "job_title": "Docente",
+            "employment_status": "Nombrado",
+        }
+    )
+
+    res03 = client.get(
+        "/api/v1/reports/annex-03",
+        params={"month": 7, "year": 2026},
+        headers=auth_headers,
+    )
+    assert res03.status_code == 200
+    rows = res03.json()["rows"]
+    dnis = [r["dni"] for r in rows]
+    assert "88888888" in dnis
+
+    res04 = client.get(
+        "/api/v1/reports/annex-04",
+        params={"month": 7, "year": 2026},
+        headers=auth_headers,
+    )
+    assert res04.status_code == 200
+    assert res04.json()["staff_count"] >= 4

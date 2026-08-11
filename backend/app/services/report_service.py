@@ -31,8 +31,10 @@ class ReportService:
             rows_by_staff[row["staff_member_id"]].append(row)
 
         rows = []
-        for staff_member_id, days in sorted(rows_by_staff.items()):
-            staff_member = self._staff_member(staff_member_id)
+        active_staff = staff_member_service.list(is_active="Y")
+        for staff_member in active_staff:
+            staff_member_id = staff_member["id"]
+            days = rows_by_staff.get(staff_member_id, [])
             rows.append(
                 {
                     "staff_member_id": staff_member_id,
@@ -50,14 +52,14 @@ class ReportService:
         }
 
     def annex_04(self, month: int, year: int) -> dict[str, Any]:
+        active_staff = staff_member_service.list(is_active="Y")
         attendance_rows = attendance_service.list_month(month, year)
         totals = Counter(row["status"] for row in attendance_rows)
-        staff_member_ids = {row["staff_member_id"] for row in attendance_rows}
         return {
             "institution": DEMO_INSTITUTION,
             "period": {"month": month, "year": year},
             "source": "attendance_day",
-            "staff_count": len(staff_member_ids),
+            "staff_count": len(active_staff),
             "totals": {
                 "present": totals["present"],
                 "late": totals["late"],
