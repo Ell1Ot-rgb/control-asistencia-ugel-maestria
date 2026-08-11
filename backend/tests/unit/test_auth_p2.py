@@ -63,6 +63,7 @@ def test_redis_unavailable_returns_503(monkeypatch: pytest.MonkeyPatch) -> None:
     store = session_store_module.session_store
     monkeypatch.setattr(store, "_client", None)
     monkeypatch.setattr(session_store_module, "redis", None)
+    monkeypatch.setattr(session_store_module.settings, "app_allow_memory_session", False)
 
     response = TestClient(app).post(
         "/api/v1/auth/sessions",
