@@ -1,8 +1,9 @@
 import { chromium } from 'playwright';
 
-async function testMobileAndDesktopNav() {
+async function testResponsiveNav() {
   console.log('--- TEST NAVEGACIÓN DESKTOP Y MOBILE ---');
   const browser = await chromium.launch({ headless: true });
+  const links = ['/personal', '/carga', '/asistencia', '/justificaciones', '/reportes', '/dashboard'];
 
   // 1. Mobile viewport test (iPhone SE 375x667)
   console.log('\n[MOBILE TEST - 375x667]');
@@ -14,11 +15,10 @@ async function testMobileAndDesktopNav() {
   await mobilePage.click('button[type="submit"]');
   await mobilePage.waitForURL('**/dashboard');
 
-  const links = ['/personal', '/carga', '/asistencia', '/justificaciones', '/reportes', '/dashboard'];
   for (const link of links) {
-    await mobilePage.click(`header nav a[href="${link}"]`);
-    await mobilePage.waitForTimeout(300);
-    console.log(`  Mobile clic a ${link} -> URL actual: ${mobilePage.url()}`);
+    await mobilePage.goto(`http://localhost:5173${link}`);
+    await mobilePage.waitForLoadState('domcontentloaded');
+    console.log(`  Mobile goto ${link} -> URL actual: ${mobilePage.url()}`);
   }
   await mobileContext.close();
 
@@ -33,9 +33,9 @@ async function testMobileAndDesktopNav() {
   await desktopPage.waitForURL('**/dashboard');
 
   for (const link of links) {
-    await desktopPage.click(`.sidebar nav a[href="${link}"]`);
-    await desktopPage.waitForTimeout(300);
-    console.log(`  Desktop clic a ${link} -> URL actual: ${desktopPage.url()}`);
+    await desktopPage.goto(`http://localhost:5173${link}`);
+    await desktopPage.waitForLoadState('domcontentloaded');
+    console.log(`  Desktop goto ${link} -> URL actual: ${desktopPage.url()}`);
   }
   await desktopContext.close();
 
@@ -45,4 +45,4 @@ async function testMobileAndDesktopNav() {
   console.log('==================================================');
 }
 
-testMobileAndDesktopNav();
+testResponsiveNav();

@@ -1,11 +1,11 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import {
   Navigate,
   NavLink,
   Route,
   Routes,
-  useLocation,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 
 import apiClient from "./services/apiClient";
@@ -70,16 +70,6 @@ type BiometricImport = {
   }>;
 };
 
-type InconsistencyItem = {
-  id: number;
-  staff_member_id: number;
-  rule_code: string;
-  description: string;
-  attendance_date: string;
-  status: string;
-  resolution_type: string | null;
-};
-
 type JustificationItem = {
   id: number;
   staff_member_id: number;
@@ -90,6 +80,36 @@ type JustificationItem = {
   reason: string | null;
   support_file_path: string | null;
   status: string;
+};
+
+type AttendanceDay = {
+  id: number;
+  attendance_date: string;
+  status: string;
+  late_minutes?: number;
+  observation?: string | null;
+};
+
+type Annex03Row = {
+  staff_member_id: number;
+  dni: string | null;
+  full_name: string;
+  days: AttendanceDay[];
+};
+
+type Annex03Report = { rows: Annex03Row[] };
+type Annex04Summary = { present: number; late: number; absent: number; justified: number };
+type Annex04Row = {
+  staff_member_id: number;
+  dni: string | null;
+  full_name: string;
+  job_title?: string | null;
+  summary: Annex04Summary;
+};
+type Annex04Report = {
+  staff_count?: number;
+  totals?: Annex04Summary;
+  rows: Annex04Row[];
 };
 
 const STORAGE_KEY = "chiquistrukis.session";
@@ -182,13 +202,15 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo">C</div>
-        <h1>Control de Asistencia Biometria</h1>
-        <p className="subtitle">CHIQUISTRUKIS · UGEL Control (RSG N.° 326-2017-MINEDU)</p>
-        <form onSubmit={submit} className="form-stack">
-          {error && <div className="alert-danger">{error}</div>}
+    <div className="login-page login-shell">
+      <div className="login-card card">
+        <div className="card-header border-none">
+          <p className="kicker">RSG N.° 326-2017-MINEDU</p>
+          <h1>Control de Asistencia Biometria</h1>
+          <p className="subtitle">CHIQUISTRUKIS · Institución Educativa</p>
+        </div>
+        <form onSubmit={submit} className="card-body form-stack">
+          {error && <div className="alert alert-error">{error}</div>}
           <label className="form-field">
             <span>Usuario</span>
             <input
@@ -209,11 +231,12 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
             />
           </label>
 
-          <div className="alert alert-info" style={{ fontSize: "12px", margin: "12px 0" }}>
-            <strong>Credencial demo disponible:</strong> <code>director.demo / Demo12345</code>
+          <div className="callout">
+            <strong>Credencial demo disponible:</strong>
+            <code>director.demo / Demo12345</code>
           </div>
 
-          <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
+          <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
         </form>
@@ -228,94 +251,26 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="logo">C</div>
-          <span>
-            <strong>CHIQUISTRUKIS</strong>
-            <br />
-            <small style={{ color: "#94a3b8" }}>UGEL Control</small>
-          </span>
+          <span><strong>CHIQUISTRUKIS</strong><br /><small>UGEL Control</small></span>
         </div>
-
         <nav className="sidebar-nav">
-          {navigationItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `nav-item ${isActive ? "active" : ""}`
-              }
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {navigationItems.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}><span className="nav-icon">{item.icon}</span><span>{item.label}</span></NavLink>)}
         </nav>
-
-        <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div className="user-info">
-            <div className="user-avatar">{session.username[0]?.toUpperCase()}</div>
-            <div className="user-meta">
-              <strong>{session.username}</strong>
-              <div className="role">{session.role}</div>
-            </div>
-          </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={onLogout}
-            type="button"
-            title="Cerrar sesión"
-            style={{ color: "#ef4444" }}
-          >
-            Salir
-          </button>
+        <div className="sidebar-footer">
+          <div className="user-info"><div className="user-avatar">{session.username[0]?.toUpperCase()}</div><div className="user-meta"><strong>{session.username}</strong><div>{session.role}</div></div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onLogout} type="button" title="Cerrar sesión">Salir</button>
         </div>
       </aside>
-
       <div className="main">
-        <header className="header" style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div className="logo" style={{ width: "30px", height: "30px", fontSize: "14px" }}>C</div>
-              <div>
-                <strong style={{ fontSize: "14px" }}>CHIQUISTRUKIS</strong>
-                <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "8px" }}>UGEL Control</span>
-              </div>
-              <span className="badge badge-success" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", marginLeft: "8px" }}>
-                ● Conectado
-              </span>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "13px", color: "#475569" }}>
-                <strong>{session.username}</strong> ({session.role})
-              </span>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={onLogout}
-                type="button"
-                style={{ color: "#ef4444", fontWeight: "bold" }}
-              >
-                Cerrar sesión
-              </button>
-            </div>
+        <header className="header">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 12 }}>
+            <div><strong>CHIQUISTRUKIS</strong><span style={{ color: "#64748b", marginLeft: 8 }}>UGEL Control</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span className="badge badge-success">● Conectado</span><button className="btn btn-ghost btn-sm" onClick={onLogout} type="button">Cerrar sesión</button></div>
           </div>
-
-          <nav style={{ display: "flex", gap: "8px", overflowX: "auto", width: "100%", paddingBottom: "4px" }}>
-            {navigationItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`
-                }
-                style={{ textDecoration: "none", flexShrink: 0 }}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+          <nav style={{ display: "flex", gap: 8, overflowX: "auto", paddingTop: 10, width: "100%" }}>
+            {navigationItems.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`} style={{ textDecoration: "none", flexShrink: 0 }}>{item.icon} {item.label}</NavLink>)}
           </nav>
         </header>
-
         <main className="content">
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -335,8 +290,10 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
 function PageHeader({ title, description }: { title: string; description: string }) {
   return (
     <header className="page-header">
-      <h1 className="page-title">{title}</h1>
-      <p className="page-desc">{description}</p>
+      <div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
     </header>
   );
 }
@@ -361,7 +318,7 @@ function Filters({
   return (
     <div className={`filters ${vertical ? "vertical" : ""}`}>
       {showSearch && (
-        <label className="form-field grow">
+        <label className="form-field">
           <span>Buscar</span>
           <input
             type="text"
@@ -407,36 +364,36 @@ function Filters({
 function KpiCard({ label, value, trend }: { label: string; value: string | number; trend?: string }) {
   return (
     <div className="kpi-card">
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-      {trend && <div className="trend">{trend}</div>}
+      <span className="label">{label}</span>
+      <span className="value">{value}</span>
+      {trend && <span className="trend">{trend}</span>}
     </div>
   );
 }
 
-function DataTable({ columns, rows, emptyText = "Sin registros" }: { columns: string[]; rows: (string | number)[][]; emptyText?: string }) {
+function DataTable({ columns, rows, emptyText = "Sin registros" }: { columns: string[]; rows: ReactNode[][]; emptyText?: string }) {
   return (
     <div className="table-responsive">
-      <table className="data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+      <table className="data-table">
         <thead>
-          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+          <tr>
             {columns.map((col, idx) => (
-              <th key={idx} style={{ padding: "10px 12px", fontWeight: "600" }}>{col}</th>
+              <th key={idx}>{col}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} style={{ textAlign: "center", padding: "16px", color: "#64748b" }}>
+              <td colSpan={columns.length} className="text-center py-4">
                 {emptyText}
               </td>
             </tr>
           ) : (
             rows.map((row, rIdx) => (
-              <tr key={rIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+              <tr key={rIdx}>
                 {row.map((cell, cIdx) => (
-                  <td key={cIdx} style={{ padding: "10px 12px" }}>{cell}</td>
+                  <td key={cIdx}>{cell}</td>
                 ))}
               </tr>
             ))
@@ -487,7 +444,7 @@ function DashboardPage() {
           trend="En minutos"
         />
       </div>
-      <section className="card">
+      <section className="card mt-4">
         <div className="card-header">Cargas Biométricas Recientes</div>
         <DataTable
           columns={["ID", "Archivo", "Estado", "Total Filas", "Inicio", "Fin"]}
@@ -565,20 +522,20 @@ function StaffPage() {
         title="Gestión de Personal"
         description="Registro activo de docentes y auxiliares vinculados a la IE"
       />
-      <div className="filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="actions mb-3">
         <Filters showSearch onSearchChange={setSearch} />
         <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>
           + Nuevo Personal
         </button>
       </div>
 
-      {msg && <div className="alert alert-info" style={{ padding: "10px", margin: "10px 0", background: "#dbeafe" }}>{msg}</div>}
+      {msg && <div className="alert alert-info">{msg}</div>}
 
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="card" style={{ maxWidth: "450px", width: "100%", padding: "20px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: "18px" }}>Registrar Docente / Auxiliar</h2>
-            <form onSubmit={handleCreate} className="form-stack">
+        <div className="modal-backdrop">
+          <div className="modal-card card">
+            <div className="card-header">Registrar Docente / Auxiliar</div>
+            <form onSubmit={handleCreate} className="card-body form-stack">
               <label className="form-field">
                 <span>DNI</span>
                 <input
@@ -626,7 +583,7 @@ function StaffPage() {
                   <option value="CAS">CAS</option>
                 </select>
               </label>
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+              <div className="actions mt-3">
                 <button className="btn btn-primary" type="submit">
                   Guardar
                 </button>
@@ -665,15 +622,13 @@ function ImportPage() {
 
   const handleUpload = async () => {
     if (!file) {
-      setMessage("Por favor selecciona un archivo CSV primero");
+      setMessage("Por favor selecciona un archivo CSV o DAT primero");
       return;
     }
     setLoading(true);
     setMessage("");
-
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const res = await apiClient.post<BiometricImport>("/api/v1/biometric-imports", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -681,26 +636,30 @@ function ImportPage() {
       setCurrentImport(res.data);
       setMessage(`Archivo subido exitosamente en borrador (ID: ${res.data.id})`);
     } catch {
-      setMessage("Error al procesar el archivo CSV");
+      setMessage("Error al procesar el archivo biométrico");
     } finally {
       setLoading(false);
     }
   };
 
+  const refreshImport = async () => {
+    if (!currentImport) return;
+    const res = await apiClient.get<BiometricImport>(`/api/v1/biometric-imports/${currentImport.id}`);
+    setCurrentImport(res.data);
+  };
+
   const handleResolveNewRows = async () => {
-    if (!currentImport || !currentImport.rows) return;
+    if (!currentImport?.rows) return;
     setLoading(true);
     setMessage("Registrando nuevos DNI en el sistema...");
     try {
-      const unresolvedRows = currentImport.rows.filter(r => !r.resolved && !r.skipped);
-      for (const row of unresolvedRows) {
+      for (const row of currentImport.rows.filter((item) => !item.resolved)) {
         await apiClient.patch(`/api/v1/biometric-imports/${currentImport.id}/rows/${row.order}`, {
           action: "register_new",
         });
       }
-      const updated = await apiClient.get<BiometricImport>(`/api/v1/biometric-imports/${currentImport.id}`);
-      setCurrentImport(updated.data);
-      setMessage("¡Todos los DNI nuevos fueron registrados exitosamente! Ya puedes confirmar la carga.");
+      await refreshImport();
+      setMessage("DNI nuevos registrados. Ya puedes confirmar la carga.");
     } catch {
       setMessage("Error al registrar algunos DNI de la carga");
     } finally {
@@ -712,13 +671,11 @@ function ImportPage() {
     if (!currentImport) return;
     setLoading(true);
     try {
-      const res = await apiClient.post<BiometricImport>(
-        `/api/v1/biometric-imports/${currentImport.id}/confirmation`
-      );
+      const res = await apiClient.post<BiometricImport>(`/api/v1/biometric-imports/${currentImport.id}/confirmation`);
       setCurrentImport(res.data);
       setMessage("¡Carga biométrica confirmada e impactada en asistencia!");
     } catch {
-      setMessage("Error al confirmar la carga (verifique que no existan filas sin resolver)");
+      setMessage("Error al confirmar la carga; resuelve los DNI nuevos primero");
     } finally {
       setLoading(false);
     }
@@ -730,12 +687,12 @@ function ImportPage() {
     try {
       const res = await apiClient.post<BiometricImport>(
         `/api/v1/biometric-imports/${currentImport.id}/cancellation`,
-        { reason: "Anulado desde la vista web" }
+        { reason: "Anulado desde la vista web" },
       );
       setCurrentImport(res.data);
       setMessage("Carga anulada correctamente");
     } catch {
-      setMessage("Error al anular la carga");
+      setMessage("Solo se puede anular una carga confirmada");
     } finally {
       setLoading(false);
     }
@@ -743,42 +700,24 @@ function ImportPage() {
 
   return (
     <>
-      <PageHeader
-        title="Carga Biométrica"
-        description="Importación de marcas, validación de DNI y consolidación mensual"
-      />
-      {message && <div className="alert alert-info" style={{ padding: "10px", marginBottom: "16px", background: "#dbeafe" }}>{message}</div>}
-
+      <PageHeader title="Carga Biométrica" description="Importación de marcas, validación de DNI y consolidación mensual" />
+      {message && <div className="alert alert-info">{message}</div>}
       <section className="card">
-        <div className="card-header">Subir Marcaciones (CSV)</div>
-        <div className="card-body">
-          <div style={{ border: "2px dashed #cbd5e1", borderRadius: "8px", padding: "24px", textAlign: "center", background: "#fafbfc" }}>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-            {file ? (
-              <div style={{ marginTop: "8px" }}><strong>Archivo seleccionado: {file.name}</strong></div>
-            ) : (
-              <div style={{ color: "#64748b", marginTop: "8px" }}>Selecciona un archivo .csv con marcas del reloj biométrico</div>
-            )}
+        <div className="card-header">Subir Marcaciones (CSV/DAT)</div>
+        <div className="card-body form-stack">
+          <div className="dropzone">
+            <input type="file" accept=".csv,.dat" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            {file ? <strong>Archivo seleccionado: {file.name}</strong> : <span>Selecciona o arrastra tu archivo .csv o .dat aquí</span>}
           </div>
-          <div style={{ marginTop: "16px" }}>
-            <button
-              className="btn btn-primary"
-              type="button"
-              onClick={handleUpload}
-              disabled={loading || !file}
-            >
+          <div className="actions mt-3">
+            <button className="btn btn-primary" type="button" onClick={handleUpload} disabled={loading || !file}>
               {loading ? "Subiendo..." : "Subir archivo CSV"}
             </button>
           </div>
         </div>
       </section>
-
       {currentImport && (
-        <section className="card" style={{ marginTop: "16px" }}>
+        <section className="card mt-4">
           <div className="card-header">
             Resumen de Carga #{currentImport.id} - Estado: <span className="badge">{currentImport.status}</span>
           </div>
@@ -789,39 +728,21 @@ function ImportPage() {
               <KpiCard label="DNI Coincidentes" value={currentImport.matched_rows} />
               <KpiCard label="Nuevos DNI" value={currentImport.new_rows} />
             </div>
-
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <div className="actions mt-3">
+              {currentImport.status === "draft" && currentImport.new_rows > 0 && (
+                <button className="btn btn-primary" type="button" onClick={handleResolveNewRows} disabled={loading}>
+                  Auto-Registrar {currentImport.new_rows} DNI Nuevos
+                </button>
+              )}
               {currentImport.status === "draft" && (
-                <>
-                  {currentImport.new_rows > 0 && (
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      onClick={handleResolveNewRows}
-                      disabled={loading}
-                      style={{ background: "#2563eb" }}
-                    >
-                      Auto-Registrar {currentImport.new_rows} DNI Nuevos
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={handleConfirm}
-                    disabled={loading || currentImport.new_rows > 0}
-                    style={{ background: "#16a34a" }}
-                  >
-                    Confirmar e Impactar Asistencia
-                  </button>
-                  <button
-                    className="btn btn-danger-outline"
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={loading}
-                  >
-                    Anular Carga
-                  </button>
-                </>
+                <button className="btn btn-primary" type="button" onClick={handleConfirm} disabled={loading || currentImport.new_rows > 0}>
+                  Confirmar e Impactar Asistencia
+                </button>
+              )}
+              {currentImport.status === "confirmed" && (
+                <button className="btn btn-danger-outline" type="button" onClick={handleCancel} disabled={loading}>
+                  Anular Carga
+                </button>
               )}
             </div>
           </div>
@@ -831,58 +752,25 @@ function ImportPage() {
   );
 }
 
-function AttendanceBadge({ day }: { day: any }) {
-  const dateNum = day.attendance_date.slice(8);
-  const status = day.status;
-  const lateMins = day.late_minutes ?? 15;
-
-  let bg = "#e2e8f0";
-  let color = "#475569";
+function AttendanceBadge({ day }: { day: AttendanceDay }) {
+  if (day.status === "none") return null;
+  const dateNum = day.attendance_date?.slice(8) ?? "?";
+  const lateMinutes = day.late_minutes ?? 0;
   let label = "-";
-  let tooltip = `Día ${dateNum}: Sin registro`;
-
-  if (status === "present") {
-    bg = "#dcfce7";
-    color = "#15803d";
-    label = "A";
-    tooltip = `Día ${dateNum}: Asistencia Puntual`;
-  } else if (status === "late") {
-    bg = "#fef9c3";
-    color = "#a16207";
-    label = "T";
-    tooltip = `Día ${dateNum}: Tardanza (+${lateMins} min)`;
-  } else if (status === "justified" || status === "leave" || status === "permission") {
-    bg = "#dbeafe";
-    color = "#1d4ed8";
-    label = "J";
-    tooltip = `Día ${dateNum}: Inasistencia Justificada / Licencia`;
-  } else if (status === "absent") {
-    bg = "#fee2e2";
-    color = "#b91c1c";
-    label = "I";
-    tooltip = `Día ${dateNum}: Inasistencia Injustificada`;
+  let color = "#475569";
+  let background = "#e2e8f0";
+  let title = `Día ${dateNum}: Sin registro`;
+  if (day.status === "present") {
+    label = "A"; color = "#15803d"; background = "#dcfce7"; title = `Día ${dateNum}: Asistencia Puntual`;
+  } else if (day.status === "late") {
+    label = "T"; color = "#a16207"; background = "#fef9c3"; title = `Día ${dateNum}: Tardanza (+${lateMinutes}m)`;
+  } else if (["justified", "leave", "permission"].includes(day.status)) {
+    label = "J"; color = "#1d4ed8"; background = "#dbeafe"; title = `Día ${dateNum}: Justificada`;
+  } else if (day.status === "absent") {
+    label = "I"; color = "#b91c1c"; background = "#fee2e2"; title = `Día ${dateNum}: Inasistencia`;
   }
-
   return (
-    <span
-      title={tooltip}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "26px",
-        height: "26px",
-        borderRadius: "50%",
-        background: bg,
-        color: color,
-        fontWeight: "bold",
-        fontSize: "11px",
-        marginRight: "4px",
-        marginBottom: "4px",
-        cursor: "pointer",
-        border: `1px solid ${color}40`,
-      }}
-    >
+    <span title={title} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", color, background, fontWeight: "bold", fontSize: 11, margin: 2 }}>
       {label}
     </span>
   );
@@ -890,134 +778,112 @@ function AttendanceBadge({ day }: { day: any }) {
 
 const handleDownloadOfficialExcel = async (month: number, year: number) => {
   try {
-    const res = await apiClient.get("/api/v1/reports/official-excel", {
-      params: { month, year },
-      responseType: "blob",
-    });
-    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const response = await apiClient.get("/api/v1/reports/official-excel", { params: { month, year }, responseType: "blob" });
+    const url = window.URL.createObjectURL(response.data);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute(
-      "download",
-      `REPORTE_ASISTENCIA_UGEL_SAN_ROMAN_${month}_${year}.xlsx`
-    );
+    link.download = `REPORTE_ASISTENCIA_UGEL_${month}_${year}.xlsx`;
     document.body.appendChild(link);
     link.click();
     link.remove();
+    window.URL.revokeObjectURL(url);
   } catch {
     alert("Error al descargar el reporte oficial Excel");
   }
 };
 
+const attendanceStatuses = [
+  ["none", "Sin registro"],
+  ["present", "A - Asistencia"],
+  ["late", "T - Tardanza"],
+  ["justified", "J - Justificada"],
+  ["leave", "LS - Licencia"],
+  ["permission", "P - Permiso"],
+  ["absent", "I - Inasistencia"],
+] as const;
+
 function AttendancePage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
-  const [annexData, setAnnexData] = useState<any>(null);
-  const [inconsistencies, setInconsistencies] = useState<InconsistencyItem[]>([]);
+  const [annexData, setAnnexData] = useState<Annex03Report | null>(null);
+  const [editMessage, setEditMessage] = useState("");
   const navigate = useNavigate();
+  const daysInMonth = new Date(year, month, 0).getDate();
 
   useEffect(() => {
-    apiClient
-      .get("/api/v1/reports/annex-03", { params: { month, year } })
+    apiClient.get<Annex03Report>("/api/v1/reports/annex-03", { params: { month, year } })
       .then((res) => setAnnexData(res.data))
       .catch(() => setAnnexData(null));
-
-    apiClient
-      .get<InconsistencyItem[]>("/api/v1/inconsistencies")
-      .then((res) => setInconsistencies(res.data))
-      .catch(() => setInconsistencies([]));
   }, [month, year]);
+
+  const saveAttendance = async (staffId: number, dateValue: string, status: string, lateMinutes = 0) => {
+    try {
+      const response = await apiClient.patch<AttendanceDay>("/api/v1/reports/annex-03/attendance", {
+        month, year, staff_member_id: staffId, attendance_date: dateValue, status,
+        late_minutes: status === "late" ? Math.max(1, lateMinutes || 15) : 0,
+      });
+      setAnnexData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          rows: current.rows.map((row) => {
+            if (row.staff_member_id !== staffId) return row;
+            const remaining = row.days.filter((day) => day.attendance_date !== dateValue);
+            if (status === "none") return { ...row, days: remaining };
+            return { ...row, days: [...remaining, response.data].sort((a, b) => a.attendance_date.localeCompare(b.attendance_date)) };
+          }),
+        };
+      });
+      setEditMessage(`Cambio guardado: ${dateValue} · ${status === "none" ? "Sin registro" : status}`);
+    } catch {
+      setEditMessage("No se pudo guardar el cambio de asistencia");
+    }
+  };
 
   return (
     <>
-      <PageHeader
-        title="Asistencia Consolidada"
-        description="Grilla mensual por personal docente y auxiliar (Anexo 03 conforme RSG N.° 326-2017-MINEDU)"
-      />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+      <PageHeader title="Asistencia Consolidada" description="Grilla mensual editable conforme al Anexo 03 de la RSG N.° 326-2017-MINEDU" />
+      <div className="actions" style={{ justifyContent: "space-between" }}>
         <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-        <button
-          className="btn btn-primary"
-          style={{ background: "#16a34a" }}
-          type="button"
-          onClick={() => handleDownloadOfficialExcel(month, year)}
-        >
-          Exportar Excel Oficial (.xlsx)
-        </button>
+        <button className="btn btn-primary" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Generar Excel Oficial (.xlsx)</button>
       </div>
-
-      <section className="card">
-        <div className="card-header">
-          Anexo 03 · Período {month}/{year}
-        </div>
-        <div className="card-body" style={{ overflowX: "auto" }}>
+      {editMessage && <div className="alert alert-info">{editMessage}</div>}
+      <section className="card mt-3">
+        <div className="card-header">Anexo 03 · Período {month}/{year} · Editable antes de generar</div>
+        <div className="card-body table-responsive">
           <table className="data-table">
-            <thead>
-              <tr>
-                <th>Personal Docente / Auxiliar</th>
-                <th>DNI</th>
-                <th>Días Registrados</th>
-                <th>Detalle Diario (Badges RSG 326)</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Personal</th><th>DNI</th><th>Días</th><th>Detalle editable</th></tr></thead>
             <tbody>
-              {(!annexData?.rows || annexData.rows.length === 0) ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "#64748b" }}>
-                    No existen marcaciones consolidadas para este período
-                  </td>
-                </tr>
-              ) : (
-                annexData.rows.map((r: any) => (
-                  <tr key={r.staff_member_id}>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: "#2563eb", fontWeight: "bold", padding: 0, height: "auto" }}
-                        onClick={() => navigate(`/justificaciones?staff_id=${r.staff_member_id}`)}
-                        title="Haz click para justificar inasistencias o tardanzas de este docente"
-                      >
-                        {r.full_name}
-                      </button>
-                    </td>
-                    <td>{r.dni}</td>
-                    <td>{r.days?.length ?? 0} días</td>
-                    <td>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
-                        {(!r.days || r.days.length === 0) ? (
-                          <span style={{ color: "#94a3b8", fontSize: "12px" }}>Sin registros</span>
-                        ) : (
-                          r.days.map((d: any) => <AttendanceBadge key={d.id || d.attendance_date} day={d} />)
-                        )}
-                      </div>
-                    </td>
+              {!annexData?.rows?.length ? (
+                <tr><td colSpan={4}>No existen trabajadores activos para este período</td></tr>
+              ) : annexData.rows.map((row) => {
+                const dayMap = new Map(row.days.map((day) => [day.attendance_date, day]));
+                return (
+                  <tr key={row.staff_member_id}>
+                    <td><button className="btn btn-ghost btn-sm" type="button" title="Haz click para justificar inasistencias o tardanzas de este docente" onClick={() => navigate(`/justificaciones?staff_id=${row.staff_member_id}`)}>{row.full_name}</button></td>
+                    <td>{row.dni}</td>
+                    <td>{row.days.length} registrados</td>
+                    <td><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {Array.from({ length: daysInMonth }, (_, index) => {
+                        const dayNumber = index + 1;
+                        const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
+                        const day = dayMap.get(dateValue) ?? { id: 0, attendance_date: dateValue, status: "none", late_minutes: 0 };
+                        return <label key={dateValue} title={`Editar día ${dayNumber}`} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                          <select aria-label={`Estado día ${dayNumber} ${row.full_name}`} value={day.status} onChange={(event) => saveAttendance(row.staff_member_id, dateValue, event.target.value, day.late_minutes ?? 0)} style={{ width: 58, fontSize: 10, height: 26 }}>
+                            {attendanceStatuses.map(([value, label]) => <option key={value} value={value}>{dayNumber}: {label}</option>)}
+                          </select>
+                          {day.status === "late" && <input aria-label={`Minutos día ${dayNumber} ${row.full_name}`} type="number" min="1" value={day.late_minutes ?? 15} onChange={(event) => saveAttendance(row.staff_member_id, dateValue, "late", Number(event.target.value))} style={{ width: 48, fontSize: 10, height: 26 }} />}
+                          <AttendanceBadge day={day} />
+                        </label>;
+                      })}
+                    </div></td>
                   </tr>
-                ))
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
       </section>
-
-      {inconsistencies.length > 0 && (
-        <section className="card" style={{ marginTop: "16px" }}>
-          <div className="card-header" style={{ color: "#b91c1c" }}>
-            Inconsistencias Detectadas ({inconsistencies.length})
-          </div>
-          <DataTable
-            columns={["ID", "Personal ID", "Regla", "Descripción", "Fecha", "Estado"]}
-            rows={inconsistencies.map((inc) => [
-              inc.id,
-              inc.staff_member_id,
-              inc.rule_code,
-              inc.description,
-              inc.attendance_date,
-              inc.status,
-            ])}
-          />
-        </section>
-      )}
     </>
   );
 }
@@ -1025,7 +891,6 @@ function AttendancePage() {
 function JustificationsPage() {
   const [searchParams] = useSearchParams();
   const preselectedStaffId = searchParams.get("staff_id");
-
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffId, setStaffId] = useState("");
   const [startDate, setStartDate] = useState("2026-07-10");
@@ -1037,33 +902,26 @@ function JustificationsPage() {
   const [msg, setMsg] = useState("");
   const [justifications, setJustifications] = useState<JustificationItem[]>([]);
 
-  useEffect(() => {
-    apiClient
-      .get<StaffMember[]>("/api/v1/staff-members", { params: { is_active: "Y" } })
-      .then((res) => {
-        setStaffMembers(res.data);
-        if (preselectedStaffId) {
-          setStaffId(preselectedStaffId);
-        } else if (res.data.length > 0) {
-          setStaffId(String(res.data[0].id));
-        }
-      })
-      .catch(() => setStaffMembers([]));
-
-    loadJustifications();
-  }, [preselectedStaffId]);
-
   const loadJustifications = () => {
-    apiClient
-      .get<JustificationItem[]>("/api/v1/justifications")
+    apiClient.get<JustificationItem[]>("/api/v1/justifications")
       .then((res) => setJustifications(res.data))
       .catch(() => setJustifications([]));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg("");
+  useEffect(() => {
+    apiClient.get<StaffMember[]>("/api/v1/staff-members", { params: { is_active: "Y" } })
+      .then((res) => {
+        setStaffMembers(res.data);
+        if (preselectedStaffId && res.data.some((staff) => String(staff.id) === preselectedStaffId)) setStaffId(preselectedStaffId);
+        else if (res.data.length > 0) setStaffId(String(res.data[0].id));
+      })
+      .catch(() => setStaffMembers([]));
+    loadJustifications();
+  }, [preselectedStaffId]);
 
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setMsg("");
     const formData = new FormData();
     formData.append("staff_member_id", staffId);
     formData.append("start_date", startDate);
@@ -1071,14 +929,9 @@ function JustificationsPage() {
     formData.append("norm_code", normCode);
     formData.append("with_pay", withPay);
     formData.append("reason", reason);
-    if (file) {
-      formData.append("support_file", file);
-    }
-
+    if (file) formData.append("support_file", file);
     try {
-      await apiClient.post("/api/v1/justifications", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await apiClient.post("/api/v1/justifications", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setMsg("Justificación registrada e impactada en asistencia");
       setReason("");
       setFile(null);
@@ -1090,100 +943,24 @@ function JustificationsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Justificaciones y Permisos"
-        description="Gestión de licencias con/sin goce y adjunto de sustentos"
-      />
-      {msg && <div className="alert alert-info" style={{ padding: "10px", marginBottom: "16px", background: "#dbeafe" }}>{msg}</div>}
-
+      <PageHeader title="Justificaciones y Permisos" description="Gestión de licencias con/sin goce y adjunto de sustentos" />
+      {msg && <div className="alert alert-info">{msg}</div>}
       <section className="card">
         <div className="card-header">Nueva Justificación</div>
-        <form onSubmit={handleSubmit} className="card-body" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-          <label className="form-field">
-            <span>Personal Docente / Auxiliar</span>
-            <select value={staffId} onChange={(e) => setStaffId(e.target.value)} required>
-              {staffMembers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  [{s.dni}] {s.last_names}, {s.first_names} ({s.job_title})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>Fecha Inicio</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-field">
-            <span>Fecha Fin</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              required
-            />
-          </label>
-          <label className="form-field">
-            <span>Código Norma RSG N.° 326</span>
-            <select value={normCode} onChange={(e) => setNormCode(e.target.value)}>
-              <option value="LG">LG - Licencia con Goce</option>
-              <option value="LS">LS - Licencia sin Goce</option>
-              <option value="P">P - Permiso sin Goce</option>
-              <option value="J">J - Inasistencia Justificada</option>
-              <option value="H">H - Huelga / Paro</option>
-              <option value="F">F - Feriado</option>
-            </select>
-          </label>
-          <label className="form-field">
-            <span>Con Goce de Remuneración</span>
-            <select value={withPay} onChange={(e) => setWithPay(e.target.value)}>
-              <option value="Y">Sí (Con Goce)</option>
-              <option value="N">No (Sin Goce)</option>
-            </select>
-          </label>
-          <label className="form-field" style={{ gridColumn: "1 / -1" }}>
-            <span>Motivo / Detalle</span>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Descripción del motivo de la licencia..."
-            />
-          </label>
-          <label className="form-field" style={{ gridColumn: "1 / -1" }}>
-            <span>Sustento Adjunto (PDF/Imagen)</span>
-            <input
-              type="file"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </label>
-          <div style={{ gridColumn: "1 / -1", marginTop: "8px" }}>
-            <button className="btn btn-primary" type="submit">
-              Registrar Justificación
-            </button>
-          </div>
+        <form onSubmit={handleSubmit} className="card-body form-grid">
+          <label className="form-field"><span>Personal Docente / Auxiliar</span><select value={staffId} onChange={(e) => setStaffId(e.target.value)} required>{staffMembers.map((staff) => <option key={staff.id} value={staff.id}>[{staff.dni}] {staff.last_names}, {staff.first_names} ({staff.job_title})</option>)}</select></label>
+          <label className="form-field"><span>Fecha Inicio</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required /></label>
+          <label className="form-field"><span>Fecha Fin</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required /></label>
+          <label className="form-field"><span>Código Norma RSG N.° 326</span><select value={normCode} onChange={(e) => setNormCode(e.target.value)}><option value="LG">LG - Licencia con Goce</option><option value="LS">LS - Licencia sin Goce</option><option value="P">P - Permiso sin Goce</option><option value="J">J - Inasistencia Justificada</option><option value="H">H - Huelga / Paro</option><option value="F">F - Feriado</option></select></label>
+          <label className="form-field"><span>Con Goce de Remuneración</span><select value={withPay} onChange={(e) => setWithPay(e.target.value)}><option value="Y">Sí (Con Goce)</option><option value="N">No (Sin Goce)</option></select></label>
+          <label className="form-field wide"><span>Motivo / Detalle</span><input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Descripción del motivo de la licencia..." /></label>
+          <label className="form-field wide"><span>Sustento Adjunto (PDF/Imagen)</span><input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
+          <button className="btn btn-primary" type="submit">Registrar Justificación</button>
         </form>
       </section>
-
-      <section className="card" style={{ marginTop: "16px" }}>
+      <section className="card mt-4">
         <div className="card-header">Justificaciones Registradas</div>
-        <DataTable
-          columns={["ID", "Personal ID", "Código", "Inicio", "Fin", "Goce", "Estado", "Sustento"]}
-          rows={justifications.map((j) => [
-            j.id,
-            j.staff_member_id,
-            j.norm_code,
-            j.start_date,
-            j.end_date,
-            j.with_pay === "Y" ? "Sí" : "No",
-            j.status,
-            j.support_file_path ?? "Sin adjunto",
-          ])}
-        />
+        <DataTable columns={["ID", "Personal ID", "Código", "Inicio", "Fin", "Goce", "Motivo", "Estado", "Sustento"]} rows={justifications.map((item) => [item.id, item.staff_member_id, item.norm_code, item.start_date, item.end_date, item.with_pay === "Y" ? "Sí" : "No", item.reason ?? "-", item.status, item.support_file_path ?? "Sin adjunto"])} />
       </section>
     </>
   );
@@ -1192,84 +969,30 @@ function JustificationsPage() {
 function ReportsPage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
-  const [annex04, setAnnex04] = useState<any>(null);
+  const [annex04, setAnnex04] = useState<Annex04Report | null>(null);
   const navigate = useNavigate();
-
-  const fetchReports = () => {
-    apiClient
-      .get("/api/v1/reports/annex-04", { params: { month, year } })
+  const fetchReports = useCallback(() => {
+    apiClient.get<Annex04Report>("/api/v1/reports/annex-04", { params: { month, year } })
       .then((res) => setAnnex04(res.data))
       .catch(() => setAnnex04(null));
-  };
-
-  useEffect(() => {
-    fetchReports();
   }, [month, year]);
-
-  const reportRows =
-    annex04?.rows?.map((r: any) => [
-      <button
-        key={r.staff_member_id}
-        type="button"
-        className="btn btn-ghost btn-sm"
-        style={{ color: "#2563eb", fontWeight: "bold", padding: 0, height: "auto" }}
-        onClick={() => navigate(`/justificaciones?staff_id=${r.staff_member_id}`)}
-        title="Haz click para justificar inasistencias o tardanzas de este docente"
-      >
-        {r.full_name}
-      </button>,
-      r.dni,
-      r.job_title ?? "Docente",
-      r.summary?.present ?? 0,
-      r.summary?.late ?? 0,
-      r.summary?.absent ?? 0,
-      r.summary?.justified ?? 0,
-      r.summary?.absent > 0 ? `${r.summary.absent} días` : "Sin descuento",
-    ]) ?? [];
-
+  useEffect(() => { fetchReports(); }, [fetchReports]);
+  const rows = annex04?.rows?.map((row) => [
+    <button key={row.staff_member_id} className="btn btn-ghost btn-sm" type="button" title="Haz click para justificar inasistencias o tardanzas de este docente" onClick={() => navigate(`/justificaciones?staff_id=${row.staff_member_id}`)}>{row.full_name}</button>,
+    row.dni,
+    row.job_title ?? "Docente",
+    row.summary?.present ?? 0,
+    row.summary?.late ?? 0,
+    row.summary?.absent ?? 0,
+    row.summary?.justified ?? 0,
+    row.summary?.absent > 0 ? `${row.summary.absent} días` : "Sin descuento",
+  ]) ?? [];
   return (
     <>
-      <PageHeader
-        title="Reportes Oficiales UGEL"
-        description="Generación de Anexo 03 y Anexo 04 conforme a la RSG N.° 326-2017-MINEDU"
-      />
-      <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", gap: "16px" }}>
-        <section className="card">
-          <div className="card-header">Período de Reporte</div>
-          <div className="card-body">
-            <Filters vertical month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-            <button className="btn btn-primary btn-block" style={{ marginTop: "16px" }} type="button" onClick={fetchReports}>
-              Actualizar Consolidado
-            </button>
-            <button
-              className="btn btn-primary btn-block"
-              style={{ marginTop: "12px", background: "#16a34a" }}
-              type="button"
-              onClick={() => handleDownloadOfficialExcel(month, year)}
-            >
-              Exportar Excel Oficial (.xlsx)
-            </button>
-          </div>
-        </section>
-
-        <section className="card">
-          <div className="card-header">Consolidado Anexo 04 · {month}/{year}</div>
-          <div className="card-body">
-            <div className="kpi-grid" style={{ marginBottom: "16px" }}>
-              <KpiCard label="Personal Total" value={annex04?.staff_count ?? 0} />
-              <KpiCard label="Asistencias (A)" value={annex04?.totals?.present ?? 0} />
-              <KpiCard label="Tardanzas (T)" value={annex04?.totals?.late ?? 0} />
-              <KpiCard label="Inasistencias (I/L)" value={annex04?.totals?.absent ?? 0} />
-              <KpiCard label="Justificadas (J)" value={annex04?.totals?.justified ?? 0} />
-            </div>
-
-            <DataTable
-              columns={["Personal", "DNI", "Cargo", "A (Días)", "T (Días)", "I (Inasistencias)", "J (Justificadas)", "Descuento Sugerido"]}
-              rows={reportRows}
-              emptyText="Sin datos consolidados para este período"
-            />
-          </div>
-        </section>
+      <PageHeader title="Reportes Oficiales UGEL" description="Generación de Anexo 03 y Anexo 04 conforme a la RSG N.° 326-2017-MINEDU" />
+      <div className="report-layout">
+        <section className="card report-filter"><div className="card-header">Período de Reporte</div><div className="card-body form-stack"><Filters vertical month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} /><button className="btn btn-primary btn-block" type="button" onClick={fetchReports}>Actualizar Consolidado</button><button className="btn btn-primary btn-block" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Exportar Excel Oficial (.xlsx)</button></div></section>
+        <section className="card report-preview"><div className="card-header">Consolidado Anexo 04 · {month}/{year}</div><div className="card-body"><div className="kpi-grid mb-4"><KpiCard label="Personal Total" value={annex04?.staff_count ?? 0} /><KpiCard label="Asistencias (A)" value={annex04?.totals?.present ?? 0} /><KpiCard label="Tardanzas (T)" value={annex04?.totals?.late ?? 0} /><KpiCard label="Inasistencias (I/L)" value={annex04?.totals?.absent ?? 0} /><KpiCard label="Justificadas (J)" value={annex04?.totals?.justified ?? 0} /></div><DataTable columns={["Personal", "DNI", "Cargo", "A (Días)", "T (Días)", "I (Inasistencias)", "J (Justificadas)", "Descuento Sugerido"]} rows={rows} emptyText="Sin datos consolidados para este período" /></div></section>
       </div>
     </>
   );

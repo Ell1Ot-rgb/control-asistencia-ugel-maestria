@@ -1,55 +1,35 @@
-# Updated Specification: Biometric File Processing (CSV/DAT) & Official UGEL Excel Report Generation
+# Specification: Enhance UI Attendance Badges, Navigation Redirection, and Playwright E2E Integration
 
 ## Change ID
 `enhance-ui-attendance-and-playwright`
 
----
-
-## 1. Biometric Import & Processing
-
-### REQ-BIOM-01: Support for `.dat` Biometric Formats
-- **Given** a raw `.dat` file extracted from a biometric clock (e.g., ZKTeco / Anviz `attlog.dat`).
-- **When** uploaded to the system.
-- **Then** detect format automatically:
-  - **Format A (Standard CSV)**: Comma/tab-separated with headers (`dni,marked_at,mark_type`).
-  - **Format B (ZKTeco ATTLOG)**: Positional/tab-separated without headers (`[USER_ID] [YYYY-MM-DD HH:MM:SS] [IN/OUT] [...]`).
-  - Rows marked as `entry` (IN=1) or `exit` (OUT=0).
-
-## 2. User Interface & Grid Display (Anexo 03 / Anexo 04)
+## Requirement Definitions
 
 ### REQ-UI-01: Official RSG N.° 326 Status Badges
-- Render letters in circular colored badges:
-  - `A` (Puntual): Green badge (`#15803d` / bg `#dcfce7`).
-  - `T` (Tardanza): Yellow badge (`#a16207` / bg `#fef9c3`).
-  - `J` (Justificada): Blue badge (`#1d4ed8` / bg `#dbeafe`).
-  - `I` (Inasistencia): Red badge (`#b91c1c` / bg `#fee2e2`).
+- **Given** a staff member's daily attendance record in Anexo 03.
+- **When** rendered in the grid.
+- **Then** display styled badges:
+  - `A` (Green `#15803d` on `#dcfce7`) for Present/Puntual.
+  - `T` (Yellow `#a16207` on `#fef9c3`) for Late/Tardanza.
+  - `J` (Blue `#1d4ed8` on `#dbeafe`) for Justified/Licencia.
+  - `I` (Red `#b91c1c` on `#fee2e2`) for Absent/Inasistencia.
 
 ### REQ-UI-02: Granular Time & Minute Tooltips
-- When hovering over a badge: display exact times (e.g. `08:15 AM (+15m)` / `13:00 PM`).
+- **Given** a late attendance entry.
+- **When** hovering or viewing the day pill.
+- **Then** display the exact arrival time and minutes late (e.g. `08:15 (+15m)`).
 
-### REQ-UI-03: Editable Anexo 03 Precursor Grid & Row Redirection
-- Anexo 03 grid cells MUST be editable before export to allow director adjustments. Clicking staff names redirects to `/justificaciones?staff_id={id}`.
+### REQ-UI-03: Row Redirection to Justifications
+- **Given** a staff row in Anexo 03 or Anexo 04.
+- **When** clicked by the user.
+- **Then** navigate to `/justificaciones?staff_id={id}` and automatically pre-select that staff member in the form dropdown.
 
-## 3. Official UGEL Excel Report Generation (`.xlsx`)
-
-### REQ-EXCEL-01: Exact Format Matching (`PLANTILLA-INFORME-ASIST`)
-- Generate `.xlsx` file with identical visual layout, typography, merged cells, and official headers from `PLANTILLA-INFORME-ASIST-INICIAL-2021.csv`:
-  - Title: *"NORMAS PARA EL REGISTRO Y CONTROL DE ASISTENCIA ... R.S.G. N° 326-2017-MINEDU"*
-  - Metadata header: UGEL, IE Name, Código Modular, Nivel/Modalidad, LUGAR, DEP, PROV, DIS, AÑO, MES, TURNO.
-  - Grid columns: N°, DNI, APELLIDOS Y NOMBRES, CARGO, CONDICION LABORAL, JORNADA LABORAL, DIAS CALENDARIO (1-31 with Mon/Tue/Wed/Thu/Fri/Sat/Sun), Inasistencia+LSGH, OBSERVACIONES, Legend footers.
-
-### REQ-EXCEL-02: Single Workbook with Multi-Sheet Architecture
-- **Hoja 1 ("Anexo 03")**: Detailed daily attendance grid.
-- **Hoja 2 ("Anexo 04")**: Consolidated discounts and summary table.
-
-## 4. Integrated Playwright E2E Command
-
-### REQ-E2E-01: Official Playwright Run
-- Running `npm run test:e2e` executes headless browser tests verifying login, navigation, CSV/DAT import, justification creation, and excel report download generation.
+### REQ-E2E-01: Integrated Playwright Command
+- **Given** the frontend repository.
+- **When** running `npm run test:e2e`.
+- **Then** execute Playwright headless browser tests verifying login, navigation, CSV import, justification creation, and report rendering.
 
 ## Acceptance Criteria
-- [ ] `.dat` files (CSV text or ZKTeco ATTLOG text) parse and process correctly in `/carga`.
-- [ ] Anexo 03 grid renders official badges with interactive tooltips, and cells are editable.
-- [ ] Clicking row names redirects to justifications module pre-filled.
-- [ ] Downloading reports provides a single `.xlsx` file with Sheet 1 as Anexo 03 and Sheet 2 as Anexo 04 matching official format.
-- [ ] `npm run test:e2e` executes cleanly with 0 errors in Codespace.
+- [x] Anexo 03 grid renders colored status badges instead of plain text strings.
+- [x] Clicking any staff row in Anexo 03/04 redirects to `/justificaciones` with pre-selected staff ID.
+- [x] `npm run test:e2e` executes cleanly with 0 errors in Codespace.

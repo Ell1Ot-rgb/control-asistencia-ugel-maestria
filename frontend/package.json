@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test:e2e": "node test_responsive_nav.mjs && node test_enhanced_ui.mjs && node test_agosto_import.mjs",
+    "test:e2e": "node test_responsive_nav.mjs && node test_agosto_import.mjs && node test_enhanced_ui.mjs && node test_justification_creation.mjs",
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit"

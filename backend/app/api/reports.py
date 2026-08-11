@@ -1,6 +1,7 @@
 """TEC-D09 TEC-D12."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel
 
 from app.api.deps import require_token
 from app.services.report_service import report_service
@@ -15,6 +16,26 @@ def annex03(
     if format != "json":
         raise HTTPException(status_code=400, detail="Only JSON format is available")
     return report_service.annex_03(month, year)
+
+
+
+
+class AttendanceOverrideBody(BaseModel):
+    month: int
+    year: int
+    staff_member_id: int
+    attendance_date: str
+    status: str
+    late_minutes: int = 0
+    observation: str | None = None
+
+
+@router.patch("/annex-03/attendance")
+def update_annex03_attendance(body: AttendanceOverrideBody, session: dict = Depends(require_token)):
+    try:
+        return report_service.set_attendance_override(**body.model_dump())
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/annex-04")

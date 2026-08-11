@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import date
+from pathlib import Path
 from typing import Any
 
-from app.services.attendance_service import attendance_service
+from app.services.attendance_service import VALID_ATTENDANCE_STATUSES, attendance_service
 from app.services.staff_member_service import (
     StaffMemberNotFoundError,
     staff_member_service,
@@ -21,11 +23,17 @@ DEMO_INSTITUTION = {
 
 
 class ReportService:
+    def __init__(self) -> None:
+        self._attendance_overrides: dict[tuple[int, str, int], dict[str, Any]] = {}
+
+    def reset(self) -> None:
+        self._attendance_overrides.clear()
+
     def annex_03(
         self, month: int, year: int, institution: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         inst = institution or DEMO_INSTITUTION
-        attendance_rows = attendance_service.list_month(month, year)
+        attendance_rows = self._effective_attendance(month, year)
         rows_by_staff: dict[int, list[dict[str, Any]]] = defaultdict(list)
         for row in attendance_rows:
             rows_by_staff[row["staff_member_id"]].append(row)
@@ -53,7 +61,7 @@ class ReportService:
 
     def annex_04(self, month: int, year: int) -> dict[str, Any]:
         active_staff = staff_member_service.list(is_active="Y")
-        attendance_rows = attendance_service.list_month(month, year)
+        attendance_rows = self._effective_attendance(month, year)
         totals = Counter(row["status"] for row in attendance_rows)
 
         rows_by_staff: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -112,161 +120,185 @@ class ReportService:
     def _full_name(self, staff_member: dict[str, Any]) -> str:
         return f"{staff_member['last_names']}, {staff_member['first_names']}"
 
+    def set_attendance_override(
+        self,
+        *,
+        month: int,
+        year: int,
+        staff_member_id: int,
+        attendance_date: str,
+        status: str,
+        late_minutes: int = 0,
+        observation: str | None = None,
+    ) -> dict[str, Any]:
+        parsed_date = date.fromisoformat(attendance_date)
+        if parsed_date.month != month or parsed_date.year != year:
+            raise ValueError("date_outside_period")
+        key = (staff_member_id, parsed_date.isoformat(), month)
+        if status == "none":
+            self._attendance_overrides.pop(key, None)
+            return {"staff_member_id": staff_member_id, "attendance_date": parsed_date.isoformat(), "status": "none", "late_minutes": 0}
+        if status not in VALID_ATTENDANCE_STATUSES:
+            raise ValueError("invalid_status")
+        if late_minutes < 0:
+            raise ValueError("invalid_late_minutes")
+        override = {
+            "staff_member_id": staff_member_id,
+            "attendance_date": parsed_date.isoformat(),
+            "status": status,
+            "late_minutes": late_minutes,
+            "justification_id": None,
+            "observation": observation,
+        }
+        self._attendance_overrides[(staff_member_id, parsed_date.isoformat(), month)] = override
+        return dict(override)
+
+    def _effective_attendance(self, month: int, year: int) -> list[dict[str, Any]]:
+        rows_by_key = {
+            (row["staff_member_id"], row["attendance_date"]): dict(row)
+            for row in attendance_service.list_month(month, year)
+        }
+        for (staff_member_id, attendance_date, override_month), override in self._attendance_overrides.items():
+            if override_month != month or not attendance_date.startswith(f"{year:04d}-{month:02d}-"):
+                continue
+            key = (staff_member_id, attendance_date)
+            row = dict(override)
+            row["id"] = rows_by_key.get(key, {}).get("id", 0)
+            rows_by_key[key] = row
+        return sorted(rows_by_key.values(), key=lambda row: (row["attendance_date"], row["staff_member_id"]))
+
     def export_official_excel(self, month: int, year: int) -> bytes:
         import calendar
         import io
+        from datetime import date
+
         import openpyxl
-        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.cell.cell import MergedCell
+        from openpyxl.styles import Font, PatternFill
 
-        wb = openpyxl.Workbook()
+        template_path = Path(__file__).resolve().parents[2] / "templates" / "PLANTILLA-INFORME-ASIST-INICIAL-2021.xlsx"
+        wb = openpyxl.load_workbook(template_path)
+        ws1 = wb["ASISTENCIA"]
+        ws2 = wb["REPORTE CONSOLIDADO"]
+        month_names = ["", "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+        month_name = month_names[month]
+        institution = DEMO_INSTITUTION
 
-        # --- SHEET 1: ANEXO 03 ---
-        ws1 = wb.active
-        ws1.title = "Anexo 03 - Asistencia"
+        # Metadata shared by both official sheets.
+        for ws in (ws1, ws2):
+            ws["G5"] = month_name
+            ws["S5"] = year
+            ws["F6"] = institution["school_name"]
+            ws["F7"] = institution["education_level"]
+            ws["L7"] = "Dirección de IE"
+            ws["F8"] = institution["modular_code"]
+            ws["K8"] = "PUNO"
+            ws["Q8"] = "SAN ROMÁN"
+            ws["AC5"] = institution["shift_name"]
 
-        ws1.cell(row=1, column=1, value="NORMAS PARA EL REGISTRO Y CONTROL DE ASISTENCIA Y SU APLICACIÓN EN LA PLANILLA ÚNICA DE PAGOS DE LOS PROFESORES Y AUXILIARES DE EDUCACIÓN (R.S.G. N° 326-2017-MINEDU)")
-        ws1.cell(row=1, column=1).font = Font(name="Calibri", size=9, bold=True, color="1E3A8A")
+        active_staff = staff_member_service.list(is_active="Y")[:35]
+        effective_rows = self._effective_attendance(month, year)
+        by_staff: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        for row in effective_rows:
+            by_staff[row["staff_member_id"]].append(row)
 
-        ws1.cell(row=3, column=1, value="ANEXO 03")
-        ws1.cell(row=3, column=1).font = Font(name="Calibri", size=14, bold=True, color="1E40AF")
+        # Preserve the template's styles and validations while replacing its data rows.
+        for ws, end_col in ((ws1, 49), (ws2, 39)):
+            for row_num in range(13 if ws is ws2 else 14, 49):
+                for col_num in range(1, end_col + 1):
+                    cell = ws.cell(row_num, col_num)
+                    if not isinstance(cell, MergedCell):
+                        cell.value = None
 
-        ws1.cell(row=4, column=1, value="FORMATO 01: REPORTE DE ASISTENCIA DETALLADO")
-        ws1.cell(row=4, column=1).font = Font(name="Calibri", size=11, bold=True)
+        status_colors = {
+            "A": ("DCFCE7", "15803D"),
+            "J": ("DBEAFE", "1D4ED8"),
+            "I": ("FEE2E2", "B91C1C"),
+            "LG": ("DBEAFE", "1D4ED8"),
+            "LS": ("DBEAFE", "1D4ED8"),
+            "P": ("DBEAFE", "1D4ED8"),
+            "H": ("FEE2E2", "B91C1C"),
+        }
 
-        ws1.cell(row=5, column=1, value=f"UGEL: SAN ROMÁN | MES: {month} | AÑO: {year} | TURNO: Mañana")
-        ws1.cell(row=6, column=1, value=f"INSTITUCIÓN EDUCATIVA: {DEMO_INSTITUTION['school_name']} | CÓDIGO MODULAR: {DEMO_INSTITUTION['modular_code']}")
-        ws1.cell(row=7, column=1, value=f"NIVEL EDUCATIVO Y MODALIDAD: {DEMO_INSTITUTION['education_level']} | DEP: PUNO | PROV: SAN ROMÁN")
+        for index, staff in enumerate(active_staff, start=1):
+            staff_id = staff["id"]
+            rows = by_staff.get(staff_id, [])
+            days = {date.fromisoformat(row["attendance_date"]).day: row for row in rows}
+            excel_row = 13 + index
+            ws1.cell(excel_row, 1, index)
+            ws1.cell(excel_row, 4, staff.get("dni", ""))
+            ws1.cell(excel_row, 5, f'{staff.get("last_names", "")}, {staff.get("first_names", "")}')
+            ws1.cell(excel_row, 6, staff.get("job_title") or "Docente")
+            ws1.cell(excel_row, 7, staff.get("employment_status") or "Nombrado")
+            ws1.cell(excel_row, 8, "30 hrs")
 
-        headers = ["N°", "DNI", "APELLIDOS Y NOMBRES", "CARGO", "CONDICION LABORAL", "JORNADA"]
-        num_days = calendar.monthrange(year, month)[1]
-        for day in range(1, 32):
-            headers.append(str(day) if day <= num_days else "-")
-        headers.extend(["Tardanzas (m)", "Inasistencias", "Justificadas", "OBSERVACIONES"])
-
-        ws1.append([])
-        ws1.append(headers)
-
-        header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-        header_font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
-        thin_border = Border(
-            left=Side(style="thin", color="CBD5E1"),
-            right=Side(style="thin", color="CBD5E1"),
-            top=Side(style="thin", color="CBD5E1"),
-            bottom=Side(style="thin", color="CBD5E1"),
-        )
-
-        for col_idx in range(1, len(headers) + 1):
-            cell = ws1.cell(row=9, column=col_idx)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = thin_border
-
-        anex_03_data = self.annex_03(month, year)
-        active_staff = anex_03_data["rows"]
-
-        for idx, staff in enumerate(active_staff, start=1):
-            day_map = {d["attendance_date"][-2:]: d["status"] for d in staff.get("days", [])}
-            late_mins_map = {d["attendance_date"][-2:]: d.get("late_minutes", 0) for d in staff.get("days", [])}
-
-            row_vals = [idx, staff.get("dni") or "", staff.get("full_name") or "", "Docente", "Nombrado", "30 hrs"]
-
-            total_late_m = 0
-            total_absent = 0
-            total_just = 0
-
-            for d in range(1, 32):
-                if d <= num_days:
-                    d_str = f"{d:02d}"
-                    st = day_map.get(d_str)
-                    if st == "late":
-                        code = "T"
-                        total_late_m += late_mins_map.get(d_str, 15)
-                    elif st == "present":
-                        code = "A"
-                    elif st in {"justified", "leave", "permission"}:
-                        code = "J"
-                        total_just += 1
-                    elif st == "absent":
-                        code = "I"
-                        total_absent += 1
-                    else:
-                        code = "-"
-                    row_vals.append(code)
+            late_minutes = 0
+            justified = 0
+            absent = 0
+            leave_without_pay = 0
+            for day in range(1, 32):
+                cell = ws1.cell(excel_row, 8 + day)
+                row = days.get(day)
+                if day > calendar.monthrange(year, month)[1] or not row:
+                    value = None
+                elif row["status"] == "late":
+                    value = row.get("late_minutes", 0) or 15
+                    late_minutes += value
+                elif row["status"] == "present":
+                    value = "A"
+                elif row["status"] in {"justified", "permission"}:
+                    value = "J"
+                    justified += 1
+                elif row["status"] == "leave":
+                    value = "LS"
+                    leave_without_pay += 1
+                elif row["status"] == "absent":
+                    value = "I"
+                    absent += 1
                 else:
-                    row_vals.append("-")
+                    value = None
+                cell.value = value
+                if value in status_colors:
+                    fill, font = status_colors[value]
+                    cell.fill = PatternFill(start_color=fill, end_color=fill, fill_type="solid")
+                    cell.font = Font(color=font, bold=True)
 
-            row_vals.extend([total_late_m, total_absent, total_just, "Conforme RSG 326"])
-            ws1.append(row_vals)
+            ws1.cell(excel_row, 40, absent + leave_without_pay)
+            ws1.cell(excel_row, 41, "Conforme RSG 326")
+            # The template summary columns are intentionally populated with values so
+            # the workbook is useful even before a spreadsheet engine recalculates formulas.
+            ws1.cell(excel_row, 43, justified)
+            ws1.cell(excel_row, 44, 0)
+            ws1.cell(excel_row, 45, leave_without_pay)
+            ws1.cell(excel_row, 46, absent)
+            ws1.cell(excel_row, 47, 0)
+            ws1.cell(excel_row, 48, sum(1 for row in rows if row["status"] == "late"))
+            ws1.cell(excel_row, 49, late_minutes)
 
-            row_idx = 9 + idx
-            for col_idx in range(1, len(row_vals) + 1):
-                c = ws1.cell(row=row_idx, column=col_idx)
-                c.border = thin_border
-                c.alignment = Alignment(horizontal="center" if col_idx != 3 else "left", vertical="center")
+            report_row = 12 + index
+            summary = Counter(row["status"] for row in rows)
+            ws2.cell(report_row, 1, index)
+            ws2.cell(report_row, 4, staff.get("dni", ""))
+            ws2.cell(report_row, 5, f'{staff.get("last_names", "")}, {staff.get("first_names", "")}')
+            ws2.cell(report_row, 6, staff.get("job_title") or "Docente")
+            ws2.cell(report_row, 7, staff.get("employment_status") or "Nombrado")
+            ws2.cell(report_row, 8, "30 hrs")
+            ws2.cell(report_row, 10, summary["justified"])
+            ws2.cell(report_row, 12, 0)
+            ws2.cell(report_row, 13, summary["leave"])
+            ws2.cell(report_row, 16, summary["absent"])
+            ws2.cell(report_row, 18, late_minutes)
+            ws2.cell(report_row, 20, late_minutes // 60)
+            ws2.cell(report_row, 21, late_minutes % 60)
+            ws2.cell(report_row, 23, 0)
+            ws2.cell(report_row, 34, summary["absent"] + summary["leave"])
+            ws2.cell(report_row, 35, "Conforme RSG 326")
 
-                val = str(c.value)
-                if val == "A":
-                    c.fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
-                    c.font = Font(color="15803D", bold=True)
-                elif val == "T":
-                    c.fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
-                    c.font = Font(color="A16207", bold=True)
-                elif val == "J":
-                    c.fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
-                    c.font = Font(color="1D4ED8", bold=True)
-                elif val == "I":
-                    c.fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-                    c.font = Font(color="B91C1C", bold=True)
-
-        # --- SHEET 2: ANEXO 04 ---
-        ws2 = wb.create_sheet(title="Anexo 04 - Consolidado UGEL")
-        ws2.cell(row=1, column=1, value="ANEXO 04: CONSOLIDADO DE ASISTENCIA Y DESCUENTOS PARA LA PLANILLA DE PAGOS - UGEL SAN ROMÁN")
-        ws2.cell(row=1, column=1).font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-        ws2.cell(row=2, column=1, value=f"PERÍODO: MES {month} / AÑO {year}")
-
-        headers_04 = ["N°", "DNI", "APELLIDOS Y NOMBRES", "CARGO", "CONDICIÓN", "PUNTUALES", "TARDANZAS (Días)", "TOTAL MINUTOS TARDANZA", "INASISTENCIAS (Días)", "DESCUENTO SUGERIDO (Días)"]
-        ws2.append([])
-        ws2.append(headers_04)
-
-        for col_idx in range(1, len(headers_04) + 1):
-            cell = ws2.cell(row=4, column=col_idx)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = thin_border
-
-        anex_04_data = self.annex_04(month, year)
-        for idx, staff in enumerate(anex_04_data.get("rows", []), start=1):
-            sum_data = staff.get("summary", {})
-            lates = sum_data.get("late", 0)
-            absents = sum_data.get("absent", 0)
-            mins = lates * 15
-            suggested_disc = absents + (mins // 60)
-
-            r_vals = [
-                idx,
-                staff.get("dni"),
-                staff.get("full_name"),
-                staff.get("job_title") or "Docente",
-                staff.get("employment_status") or "Nombrado",
-                sum_data.get("present", 0),
-                lates,
-                mins,
-                absents,
-                suggested_disc,
-            ]
-            ws2.append(r_vals)
-
-            r_idx = 4 + idx
-            for col_idx in range(1, len(r_vals) + 1):
-                c = ws2.cell(row=r_idx, column=col_idx)
-                c.border = thin_border
-                c.alignment = Alignment(horizontal="center" if col_idx != 3 else "left", vertical="center")
-
+        # Keep the workbook linked and force Excel/Sheets to recalculate formulas on open.
+        wb.calculation.fullCalcOnLoad = True
+        wb.calculation.forceFullCalc = True
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
-
 
 report_service = ReportService()

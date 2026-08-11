@@ -35,3 +35,37 @@ def test_export_official_excel():
     assert res.status_code == 200
     assert res.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     assert len(res.content) > 1000
+
+
+def test_editable_anexo03_drives_template_workbook():
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    edit = client.patch(
+        "/api/v1/reports/annex-03/attendance",
+        headers=headers,
+        json={
+            "month": 12,
+            "year": 2026,
+            "staff_member_id": 1,
+            "attendance_date": "2026-12-15",
+            "status": "late",
+            "late_minutes": 33,
+        },
+    )
+    assert edit.status_code == 200
+    assert edit.json()["late_minutes"] == 33
+
+    report = client.get(
+        "/api/v1/reports/official-excel?month=12&year=2026",
+        headers=headers,
+    )
+    assert report.status_code == 200
+    workbook = load_workbook(BytesIO(report.content), data_only=False)
+    assert workbook.sheetnames[:2] == ["ASISTENCIA", "REPORTE CONSOLIDADO"]
+    assert len(workbook["ASISTENCIA"].merged_cells.ranges) > 0
+    assert workbook["ASISTENCIA"]["G5"].value == "DICIEMBRE"
+    assert workbook["ASISTENCIA"]["D14"].value == "45678912"
+    assert workbook["ASISTENCIA"]["W14"].value == 33
