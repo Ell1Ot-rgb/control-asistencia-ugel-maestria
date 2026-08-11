@@ -831,11 +831,90 @@ function ImportPage() {
   );
 }
 
+function AttendanceBadge({ day }: { day: any }) {
+  const dateNum = day.attendance_date.slice(8);
+  const status = day.status;
+  const lateMins = day.late_minutes ?? 15;
+
+  let bg = "#e2e8f0";
+  let color = "#475569";
+  let label = "-";
+  let tooltip = `Día ${dateNum}: Sin registro`;
+
+  if (status === "present") {
+    bg = "#dcfce7";
+    color = "#15803d";
+    label = "A";
+    tooltip = `Día ${dateNum}: Asistencia Puntual`;
+  } else if (status === "late") {
+    bg = "#fef9c3";
+    color = "#a16207";
+    label = "T";
+    tooltip = `Día ${dateNum}: Tardanza (+${lateMins} min)`;
+  } else if (status === "justified" || status === "leave" || status === "permission") {
+    bg = "#dbeafe";
+    color = "#1d4ed8";
+    label = "J";
+    tooltip = `Día ${dateNum}: Inasistencia Justificada / Licencia`;
+  } else if (status === "absent") {
+    bg = "#fee2e2";
+    color = "#b91c1c";
+    label = "I";
+    tooltip = `Día ${dateNum}: Inasistencia Injustificada`;
+  }
+
+  return (
+    <span
+      title={tooltip}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "26px",
+        height: "26px",
+        borderRadius: "50%",
+        background: bg,
+        color: color,
+        fontWeight: "bold",
+        fontSize: "11px",
+        marginRight: "4px",
+        marginBottom: "4px",
+        cursor: "pointer",
+        border: `1px solid ${color}40`,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+const handleDownloadOfficialExcel = async (month: number, year: number) => {
+  try {
+    const res = await apiClient.get("/api/v1/reports/official-excel", {
+      params: { month, year },
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `REPORTE_ASISTENCIA_UGEL_SAN_ROMAN_${month}_${year}.xlsx`
+    );
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch {
+    alert("Error al descargar el reporte oficial Excel");
+  }
+};
+
 function AttendancePage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
   const [annexData, setAnnexData] = useState<any>(null);
   const [inconsistencies, setInconsistencies] = useState<InconsistencyItem[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     apiClient
@@ -849,31 +928,76 @@ function AttendancePage() {
       .catch(() => setInconsistencies([]));
   }, [month, year]);
 
-  const rows =
-    annexData?.rows?.map((r: any) => [
-      r.full_name,
-      r.dni,
-      r.days?.length ?? 0,
-      r.days?.map((d: any) => `${d.attendance_date.slice(8)}:${d.status}`).join(" | ") || "Sin registros",
-    ]) ?? [];
-
   return (
     <>
       <PageHeader
         title="Asistencia Consolidada"
-        description="Grilla mensual por personal docente y auxiliar (Anexo 03)"
+        description="Grilla mensual por personal docente y auxiliar (Anexo 03 conforme RSG N.° 326-2017-MINEDU)"
       />
-      <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+        <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+        <button
+          className="btn btn-primary"
+          style={{ background: "#16a34a" }}
+          type="button"
+          onClick={() => handleDownloadOfficialExcel(month, year)}
+        >
+          Exportar Excel Oficial (.xlsx)
+        </button>
+      </div>
 
-      <section className="card" style={{ marginTop: "16px" }}>
+      <section className="card">
         <div className="card-header">
           Anexo 03 · Período {month}/{year}
         </div>
-        <DataTable
-          columns={["Personal", "DNI", "Días Registrados", "Detalle"]}
-          rows={rows}
-          emptyText="No existen marcaciones consolidadas para este período"
-        />
+        <div className="card-body" style={{ overflowX: "auto" }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Personal Docente / Auxiliar</th>
+                <th>DNI</th>
+                <th>Días Registrados</th>
+                <th>Detalle Diario (Badges RSG 326)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(!annexData?.rows || annexData.rows.length === 0) ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", color: "#64748b" }}>
+                    No existen marcaciones consolidadas para este período
+                  </td>
+                </tr>
+              ) : (
+                annexData.rows.map((r: any) => (
+                  <tr key={r.staff_member_id}>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: "#2563eb", fontWeight: "bold", padding: 0, height: "auto" }}
+                        onClick={() => navigate(`/justificaciones?staff_id=${r.staff_member_id}`)}
+                        title="Haz click para justificar inasistencias o tardanzas de este docente"
+                      >
+                        {r.full_name}
+                      </button>
+                    </td>
+                    <td>{r.dni}</td>
+                    <td>{r.days?.length ?? 0} días</td>
+                    <td>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
+                        {(!r.days || r.days.length === 0) ? (
+                          <span style={{ color: "#94a3b8", fontSize: "12px" }}>Sin registros</span>
+                        ) : (
+                          r.days.map((d: any) => <AttendanceBadge key={d.id || d.attendance_date} day={d} />)
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {inconsistencies.length > 0 && (
@@ -899,6 +1023,9 @@ function AttendancePage() {
 }
 
 function JustificationsPage() {
+  const [searchParams] = useSearchParams();
+  const preselectedStaffId = searchParams.get("staff_id");
+
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffId, setStaffId] = useState("");
   const [startDate, setStartDate] = useState("2026-07-10");
@@ -915,14 +1042,16 @@ function JustificationsPage() {
       .get<StaffMember[]>("/api/v1/staff-members", { params: { is_active: "Y" } })
       .then((res) => {
         setStaffMembers(res.data);
-        if (res.data.length > 0) {
+        if (preselectedStaffId) {
+          setStaffId(preselectedStaffId);
+        } else if (res.data.length > 0) {
           setStaffId(String(res.data[0].id));
         }
       })
       .catch(() => setStaffMembers([]));
 
     loadJustifications();
-  }, []);
+  }, [preselectedStaffId]);
 
   const loadJustifications = () => {
     apiClient
@@ -1064,6 +1193,7 @@ function ReportsPage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
   const [annex04, setAnnex04] = useState<any>(null);
+  const navigate = useNavigate();
 
   const fetchReports = () => {
     apiClient
@@ -1078,7 +1208,16 @@ function ReportsPage() {
 
   const reportRows =
     annex04?.rows?.map((r: any) => [
-      r.full_name,
+      <button
+        key={r.staff_member_id}
+        type="button"
+        className="btn btn-ghost btn-sm"
+        style={{ color: "#2563eb", fontWeight: "bold", padding: 0, height: "auto" }}
+        onClick={() => navigate(`/justificaciones?staff_id=${r.staff_member_id}`)}
+        title="Haz click para justificar inasistencias o tardanzas de este docente"
+      >
+        {r.full_name}
+      </button>,
       r.dni,
       r.job_title ?? "Docente",
       r.summary?.present ?? 0,
@@ -1101,6 +1240,14 @@ function ReportsPage() {
             <Filters vertical month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
             <button className="btn btn-primary btn-block" style={{ marginTop: "16px" }} type="button" onClick={fetchReports}>
               Actualizar Consolidado
+            </button>
+            <button
+              className="btn btn-primary btn-block"
+              style={{ marginTop: "12px", background: "#16a34a" }}
+              type="button"
+              onClick={() => handleDownloadOfficialExcel(month, year)}
+            >
+              Exportar Excel Oficial (.xlsx)
             </button>
           </div>
         </section>

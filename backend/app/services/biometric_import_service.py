@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from copy import deepcopy
 from datetime import datetime
 from io import StringIO
@@ -162,34 +163,77 @@ class BiometricImportService:
         return deepcopy(imp)
 
     def _parse_csv(self, content: bytes) -> list[dict[str, Any]]:
-        text = content.decode("utf-8-sig")
-        reader = csv.DictReader(StringIO(text))
-        required_fields = {"dni", "marked_at", "mark_type"}
-        if not reader.fieldnames or not required_fields.issubset(
-            set(reader.fieldnames)
-        ):
-            raise BiometricImportError("invalid_file")
+        text = content.decode("utf-8-sig", errors="replace")
+        try:
+            reader = csv.DictReader(StringIO(text))
+            required_fields = {"dni", "marked_at", "mark_type"}
+            if reader.fieldnames and required_fields.issubset(set(reader.fieldnames)):
+                rows: list[dict[str, Any]] = []
+                for order, raw_row in enumerate(reader, start=1):
+                    marked_at = self._parse_marked_at(raw_row.get("marked_at") or "")
+                    row = {
+                        "row_id": order,
+                        "order": order,
+                        "dni": (raw_row.get("dni") or "").strip(),
+                        "last_names": (raw_row.get("last_names") or "").strip(),
+                        "first_names": (raw_row.get("first_names") or "").strip(),
+                        "marked_at": marked_at.isoformat(sep=" "),
+                        "mark_type": (raw_row.get("mark_type") or "").strip().lower(),
+                        "match": "new",
+                        "staff_member_id": None,
+                        "resolved": False,
+                        "skipped": False,
+                    }
+                    if row["mark_type"] not in {"entry", "exit"}:
+                        raise BiometricImportError("invalid_file")
+                    self._apply_match(row)
+                    rows.append(row)
+                if rows:
+                    return rows
+        except BiometricImportError:
+            raise
+        except Exception:
+            pass
 
+        # Fallback to ATTLOG .dat format (tab/space delimited)
         rows: list[dict[str, Any]] = []
-        for order, raw_row in enumerate(reader, start=1):
-            marked_at = self._parse_marked_at(raw_row.get("marked_at") or "")
-            row = {
-                "row_id": order,
-                "order": order,
-                "dni": (raw_row.get("dni") or "").strip(),
-                "last_names": (raw_row.get("last_names") or "").strip(),
-                "first_names": (raw_row.get("first_names") or "").strip(),
-                "marked_at": marked_at.isoformat(sep=" "),
-                "mark_type": (raw_row.get("mark_type") or "").strip().lower(),
-                "match": "new",
-                "staff_member_id": None,
-                "resolved": False,
-                "skipped": False,
-            }
-            if row["mark_type"] not in {"entry", "exit"}:
-                raise BiometricImportError("invalid_file")
-            self._apply_match(row)
-            rows.append(row)
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for order, line in enumerate(lines, start=1):
+            parts = [p for p in re.split(r"[\t,]+", line) if p.strip()]
+            if len(parts) >= 3:
+                dni = parts[0].strip()
+                datetime_str = parts[1].strip()
+                mark_type_raw = parts[-1].strip().lower()
+                if len(parts) >= 4 and ":" in parts[2]:
+                    datetime_str = f"{parts[1].strip()} {parts[2].strip()}"
+                    mark_type_raw = parts[3].strip().lower()
+
+                mark_type = "entry"
+                if mark_type_raw in {"0", "exit", "salida", "out"}:
+                    mark_type = "exit"
+                elif mark_type_raw in {"1", "entry", "entrada", "in"}:
+                    mark_type = "entry"
+
+                try:
+                    marked_at = self._parse_marked_at(datetime_str)
+                    row = {
+                        "row_id": order,
+                        "order": order,
+                        "dni": dni,
+                        "last_names": "",
+                        "first_names": "",
+                        "marked_at": marked_at.isoformat(sep=" "),
+                        "mark_type": mark_type,
+                        "match": "new",
+                        "staff_member_id": None,
+                        "resolved": False,
+                        "skipped": False,
+                    }
+                    self._apply_match(row)
+                    rows.append(row)
+                except Exception:
+                    continue
+
         if not rows:
             raise BiometricImportError("invalid_file")
         return rows
