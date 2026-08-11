@@ -602,12 +602,16 @@ body {
   table-layout: fixed;
 }
 
-.attendance-grid th:first-child {
+.attendance-grid th:first-child,
+.attendance-grid td:first-child {
   min-width: 190px;
+  width: 190px;
 }
 
-.attendance-grid th:nth-child(2) {
+.attendance-grid th:nth-child(2),
+.attendance-grid td:nth-child(2) {
   min-width: 92px;
+  width: 92px;
 }
 
 .attendance-grid th:not(:first-child):not(:nth-child(2)),
@@ -648,9 +652,11 @@ body {
 .attendance-cell.status-none { background: transparent; color: var(--text-muted); }
 .attendance-cell.status-present { background: #dcfce7; color: #15803d; }
 .attendance-cell.status-late { background: #fef9c3; color: #a16207; }
-.attendance-cell.status-justified,
-.attendance-cell.status-leave,
-.attendance-cell.status-permission { background: #dbeafe; color: #1d4ed8; }
+.attendance-cell.status-justified { background: #dbeafe; color: #1d4ed8; }
+.attendance-cell.status-leave { background: #e0e7ff; color: #4338ca; }
+.attendance-cell.status-permission { background: #ccfbf1; color: #0f766e; }
+.attendance-cell.status-strike { background: #ffe4e6; color: #be123c; }
+.attendance-cell.status-holiday { background: #f1f5f9; color: #475569; }
 .attendance-cell.status-absent { background: #fee2e2; color: #b91c1c; }
 
 .attendance-selection {
@@ -683,4 +689,12 @@ body {
 .panel-stack {
   display: grid;
   gap: 12px;
+}
+
+
+/* Desktop header nav duplicate fix */
+@media (min-width: 769px) {
+  .header-nav {
+    display: none !important;
+  }
 }

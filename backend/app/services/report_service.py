@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import calendar
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +88,8 @@ class ReportService:
                         "justified": summary["justified"],
                         "leave": summary["leave"],
                         "permission": summary["permission"],
+                            "strike": summary["strike"],
+                            "holiday": summary["holiday"],
                     },
                 }
             )
@@ -103,6 +106,8 @@ class ReportService:
                 "justified": totals["justified"],
                 "leave": totals["leave"],
                 "permission": totals["permission"],
+                    "strike": totals["strike"],
+                    "holiday": totals["holiday"],
             },
             "rows": detail_rows,
         }
@@ -119,6 +124,102 @@ class ReportService:
 
     def _full_name(self, staff_member: dict[str, Any]) -> str:
         return f"{staff_member['last_names']}, {staff_member['first_names']}"
+
+
+    def consolidate_monthly_attendance(
+        self, month: int, year: int
+    ) -> dict[str, Any]:
+        from app.services.biometric_import_service import biometric_import_service
+
+        active_staff = staff_member_service.list(is_active="Y")
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        confirmed_imports = biometric_import_service.list(
+            status="confirmed", month=month, year=year
+        )
+        entry_marks: dict[tuple[int, str], int] = {}
+
+        for imp in confirmed_imports:
+            for row in imp.get("rows", []):
+                if row.get("skipped") or not row.get("staff_member_id"):
+                    continue
+                marked_at_str = str(row.get("marked_at", ""))
+                if " " not in marked_at_str:
+                    continue
+                date_part, time_part = marked_at_str.split(" ", 1)
+                try:
+                    dt = datetime.fromisoformat(marked_at_str)
+                    if dt.month != month or dt.year != year:
+                        continue
+                except Exception:
+                    continue
+
+                hours, minutes = map(int, time_part.split(":")[:2])
+                mark_minutes = hours * 60 + minutes
+
+                key = (row["staff_member_id"], date_part)
+                if key not in entry_marks or mark_minutes < entry_marks[key]:
+                    entry_marks[key] = mark_minutes
+
+        updated_count = 0
+        weekend_count = 0
+        standard_minutes = 8 * 60
+
+        for staff in active_staff:
+            staff_id = staff["id"]
+            for day_num in range(1, days_in_month + 1):
+                curr_date = date(year, month, day_num)
+                date_str = curr_date.isoformat()
+
+                # EXCLUDE WEEKENDS: Saturdays (5) & Sundays (6)
+                if curr_date.weekday() >= 5:
+                    weekend_count += 1
+                    continue
+
+                # WEEKDAYS (Mon-Fri)
+                key = (staff_id, date_str)
+
+                if key in entry_marks:
+                    entry_min = entry_marks[key]
+                    late = max(0, entry_min - standard_minutes)
+                    status = "late" if late > 0 else "present"
+                    attendance_service.upsert_day(
+                        staff_member_id=staff_id,
+                        attendance_date=date_str,
+                        status=status,
+                        late_minutes=late,
+                    )
+                    updated_count += 1
+                else:
+                    existing = attendance_service.list_month(
+                        month, year, staff_member_id=staff_id
+                    )
+                    existing_day = next(
+                        (d for d in existing if d["attendance_date"] == date_str),
+                        None,
+                    )
+                    has_override = (
+                        staff_id,
+                        date_str,
+                        month,
+                    ) in self._attendance_overrides
+
+                    if not existing_day and not has_override:
+                        attendance_service.upsert_day(
+                            staff_member_id=staff_id,
+                            attendance_date=date_str,
+                            status="absent",
+                            late_minutes=0,
+                        )
+                        updated_count += 1
+
+        return {
+            "month": month,
+            "year": year,
+            "consolidated_days": updated_count,
+            "weekends_skipped": weekend_count,
+            "status": "success",
+        }
 
     def set_attendance_override(
         self,

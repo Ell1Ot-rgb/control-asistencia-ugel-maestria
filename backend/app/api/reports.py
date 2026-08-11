@@ -20,6 +20,19 @@ def annex03(
 
 
 
+
+class ConsolidateBody(BaseModel):
+    month: int
+    year: int
+
+
+@router.post("/annex-03/consolidate")
+def consolidate_annex03(body: ConsolidateBody, session: dict = Depends(require_token)):
+    try:
+        return report_service.consolidate_monthly_attendance(body.month, body.year)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 class AttendanceOverrideBody(BaseModel):
     month: int
     year: int

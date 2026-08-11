@@ -13,6 +13,8 @@ VALID_ATTENDANCE_STATUSES = {
     "justified",
     "leave",
     "permission",
+    "strike",
+    "holiday",
 }
 
 

@@ -253,7 +253,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
             <div><strong>CHIQUISTRUKIS</strong><span style={{ color: "#64748b", marginLeft: 8 }}>UGEL Control</span></div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span className="badge badge-success">● Conectado</span><button className="btn btn-ghost btn-sm" onClick={onLogout} type="button">Cerrar sesión</button></div>
           </div>
-          <nav style={{ display: "flex", gap: 8, overflowX: "auto", paddingTop: 10, width: "100%" }}>
+          <nav className="header-nav" style={{ display: "flex", gap: 8, overflowX: "auto", paddingTop: 10, width: "100%" }}>
             {navigationItems.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`} style={{ textDecoration: "none", flexShrink: 0 }}>{item.icon} {item.label}</NavLink>)}
           </nav>
         </header>
@@ -755,12 +755,14 @@ const handleDownloadOfficialExcel = async (month: number, year: number) => {
 };
 
 const attendanceStatuses = [
-  ["none", "Sin registro"],
-  ["present", "A - Asistencia"],
+  ["none", "Sin registro (-)"],
+  ["present", "A - Asistencia (Puntual)"],
   ["late", "T - Tardanza"],
-  ["justified", "J - Justificada"],
-  ["leave", "LS - Licencia"],
-  ["permission", "P - Permiso"],
+  ["justified", "J - Justificada / Licencia con Goce"],
+  ["leave", "LS - Licencia sin Goce"],
+  ["permission", "P - Permiso sin Goce"],
+  ["strike", "H - Huelga / Paro"],
+  ["holiday", "F - Feriado"],
   ["absent", "I - Inasistencia"],
 ] as const;
 
@@ -848,13 +850,26 @@ function AttendancePage() {
       setSelectedCell((current) => current && current.staffId === staffId && current.date === dateValue
         ? { ...current, status, lateMinutes: response.data.late_minutes ?? 0 }
         : current);
-      setEditMessage(`Cambio guardado: ${dateValue} · ${status === "none" ? "Sin registro" : status}`);
+      const statusLabel = attendanceStatuses.find(([val]) => val === status)?.[1] ?? status;
+          const lateText = status === "late" ? ` (+${response.data.late_minutes ?? 0} min)` : "";
+          setEditMessage(`✅ Cambio guardado (${dateValue}): ${statusLabel}${lateText}`);
     } catch {
       setEditMessage("No se pudo guardar el cambio de asistencia");
     }
   };
 
-  const handleSaveSelected = () => {
+  
+      const handleConsolidateAttendance = async () => {
+        try {
+          const res = await apiClient.post<{ consolidated_days: number }>("/api/v1/reports/annex-03/consolidate", { month, year });
+          loadAttendance();
+          setEditMessage("⚡ Asistencia e inasistencias consolidadas automáticamente (" + res.data.consolidated_days + " registros · Sáb/Dom excluidos)");
+        } catch {
+          setEditMessage("❌ No se pudo consolidar la asistencia automáticamente");
+        }
+      };
+
+      const handleSaveSelected = () => {
     if (selectedCell) saveAttendance(selectedCell.staffId, selectedCell.date, selectedCell.status, selectedCell.lateMinutes);
   };
 
@@ -866,6 +881,7 @@ function AttendancePage() {
           <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
           <label className="form-field attendance-file-filter"><span>Archivo</span><select aria-label="Archivo de carga" value={selectedImportId} onChange={(event) => setSelectedImportId(event.target.value)}><option value="">Todos los archivos</option>{imports.map((item) => <option key={item.id} value={item.id}>#{item.id} · {item.file_name}</option>)}</select></label>
           <button className="btn btn-primary attendance-filter-button" type="button" onClick={loadAttendance}>Filtrar</button>
+              <button className="btn btn-secondary attendance-filter-button" type="button" onClick={handleConsolidateAttendance} title="Auto-rellenar asistencia e inasistencias excluyendo sábados y domingos">⚡ Auto-Consolidar</button>
         </div>
       </section>
       {editMessage && <div className="alert alert-info">{editMessage}</div>}
@@ -888,7 +904,7 @@ function AttendancePage() {
                       const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
                       const day = dayMap.get(dateValue) ?? { id: 0, attendance_date: dateValue, status: "none", late_minutes: 0 };
                       const selected = selectedCell?.staffId === row.staff_member_id && selectedCell.date === dateValue;
-                      const label = day.status === "present" ? "A" : day.status === "late" ? "T" : day.status === "justified" ? "J" : day.status === "leave" ? "L" : day.status === "permission" ? "P" : day.status === "absent" ? "I" : "-";
+                      const label = day.status === "present" ? "A" : day.status === "late" ? "T" : day.status === "justified" ? "J" : day.status === "leave" ? "LS" : day.status === "permission" ? "P" : day.status === "strike" ? "H" : day.status === "holiday" ? "F" : day.status === "absent" ? "I" : "-";
                       return <td key={dateValue}><button type="button" className={`attendance-cell status-${day.status}${selected ? " is-selected" : ""}`} aria-label={`Día ${dayNumber} ${row.full_name}`} title={`Día ${dayNumber}: ${day.status}${day.status === "late" ? ` (+${day.late_minutes ?? 0} min)` : ""}`} onClick={() => setSelectedCell({ staffId: row.staff_member_id, fullName: row.full_name, dni: row.dni, date: dateValue, status: day.status, lateMinutes: day.late_minutes ?? 0 })}>{label}</button></td>;
                     })}
                   </tr>;
@@ -909,7 +925,7 @@ function AttendancePage() {
           </div>
         </aside>
       </div>
-      <div className="actions mt-3"><button className="btn btn-primary" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Generar Excel Oficial (.xlsx)</button><span className="attendance-legend">A Puntual · T Tardanza · J Justificada · I Inasistencia</span></div>
+      <div className="actions mt-3"><button className="btn btn-primary" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Generar Excel Oficial (.xlsx)</button><span className="attendance-legend">A Puntual · T Tardanza · J Justificada · I Inasistencia · LS Licencia · P Permiso · H Huelga · F Feriado</span></div>
     </>
   );
 }

@@ -1,7 +1,7 @@
 /** TEC-D04 — Axios base toward /api/v1 */
 import axios from "axios";
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "",
 });
 
