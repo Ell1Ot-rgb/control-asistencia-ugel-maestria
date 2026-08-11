@@ -47,6 +47,41 @@ type StaffMember = {
   is_active: "Y" | "N";
 };
 
+type BiometricImport = {
+  id: number;
+  file_name: string;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+  total_rows: number;
+  matched_rows: number;
+  new_rows: number;
+  ok_rows: number;
+  error_rows: number;
+  rows?: Array<{
+    order: number;
+    dni: string;
+    last_names: string;
+    first_names: string;
+    marked_at: string;
+    mark_type: string;
+    match: string;
+    resolved: boolean;
+  }>;
+};
+
+type JustificationItem = {
+  id: number;
+  staff_member_id: number;
+  start_date: string;
+  end_date: string;
+  norm_code: string;
+  with_pay: string;
+  reason: string | null;
+  support_file_path: string | null;
+  status: string;
+};
+
 const STORAGE_KEY = "chiquistrukis.session";
 
 const navigationItems = [
@@ -121,6 +156,7 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
     event.preventDefault();
     setLoading(true);
     setError("");
+
     try {
       const response = await apiClient.post<Session>("/api/v1/auth/sessions", {
         username,
@@ -129,194 +165,295 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
       onLogin(response.data);
       navigate("/dashboard", { replace: true });
     } catch {
-      setError("No se pudo iniciar sesión");
+      setError("Credenciales incorrectas o servicio no disponible");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="login-page">
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-logo">CA</div>
-        <h1>Control de Asistencia</h1>
-        <p className="subtitle">Sistema biométrico · Instituciones educativas</p>
-        <label className="form-field">
-          <span>Usuario</span>
-          <input
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-          />
-        </label>
-        <label className="form-field">
-          <span>Contraseña</span>
-          <input
-            autoComplete="current-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
-        <div className="login-row">
-          <label>
-            <input type="checkbox" defaultChecked /> Recordarme
-          </label>
-          <span>Administrador UGEL</span>
+    <div className="login-shell">
+      <div className="login-card card">
+        <div className="card-header border-none">
+          <p className="kicker">RSG N.° 326-2017-MINEDU</p>
+          <h1>Control de Asistencia Biometria</h1>
+          <p className="subtitle">CHIQUISTRUKIS · Institución Educativa</p>
         </div>
-        {error && <div className="alert-danger">{error}</div>}
-        <button className="btn btn-primary btn-lg" disabled={loading} type="submit">
-          {loading ? "Ingresando" : "Iniciar sesión"}
-        </button>
-      </form>
-    </main>
+        <form onSubmit={submit} className="card-body form-stack">
+          {error && <div className="alert alert-error">{error}</div>}
+          <label className="form-field">
+            <span>Usuario</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </label>
+          <label className="form-field">
+            <span>Contraseña</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Demo12345"
+              required
+            />
+          </label>
+
+          <div className="callout">
+            <strong>Credencial demo disponible:</strong>
+            <code>director.demo / Demo12345</code>
+          </div>
+
+          <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+            {loading ? "Ingresando..." : "Iniciar sesión"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
-function Shell({
-  session,
-  onLogout,
-}: {
-  session: Session;
-  onLogout: () => void;
-}) {
+function Shell({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const location = useLocation();
-  const title = navigationItems.find((item) =>
-    location.pathname.startsWith(item.to),
-  )?.label;
-
-  const logout = async () => {
-    try {
-      await apiClient.delete("/api/v1/auth/sessions/current");
-    } finally {
-      onLogout();
-    }
-  };
 
   return (
-    <div className="app">
+    <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="logo">CA</div>
-          <span>
-            Control de
-            <br />
-            Asistencia
-          </span>
+        <div className="brand">
+          <span className="brand-logo">C</span>
+          <div className="brand-text">
+            <strong>CHIQUISTRUKIS</strong>
+            <small>UGEL Control</small>
+          </div>
         </div>
-        <nav className="sidebar-nav">
+
+        <nav className="nav-group">
           {navigationItems.map((item) => (
-            <NavLink className="nav-item" key={item.to} to={item.to}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `nav-item ${isActive ? "active" : ""}`
+              }
+            >
               <span className="nav-icon">{item.icon}</span>
-              {item.label}
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-footer">CHIQUISTRUKIS · MVP</div>
-      </aside>
-      <div className="main">
-        <header className="header">
-          <div className="header-left">{title ?? "Dashboard"}</div>
-          <div className="header-right">
-            <div className="user-info">
-              <div className="user-avatar">{session.username.slice(0, 2).toUpperCase()}</div>
-              <div className="user-meta">
-                <div>{session.username}</div>
-                <div className="role">{session.role}</div>
-              </div>
-            </div>
-            <button className="btn btn-sm btn-ghost" type="button" onClick={logout}>
-              Salir
-            </button>
+
+        <div className="user-box">
+          <div className="user-avatar">{session.username[0]?.toUpperCase()}</div>
+          <div className="user-info">
+            <strong>{session.username}</strong>
+            <small>{session.role}</small>
           </div>
+          <button
+            className="btn btn-icon"
+            onClick={onLogout}
+            type="button"
+            title="Cerrar sesión"
+          >
+            X
+          </button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <span className="location-path">{location.pathname}</span>
+          <span className="badge badge-success">Conectado</span>
         </header>
-        <main className="content">
+
+        <div className="content-body">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/personal" element={<StaffPage />} />
             <Route path="/carga" element={<ImportPage />} />
             <Route path="/asistencia" element={<AttendancePage />} />
             <Route path="/justificaciones" element={<JustificationsPage />} />
             <Route path="/reportes" element={<ReportsPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </main>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function PageHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <header className="page-header">
+      <div>
+        <h1>{title}</h1>
+        <p>{description}</p>
       </div>
+    </header>
+  );
+}
+
+function Filters({
+  vertical = false,
+  showSearch = false,
+  month = 7,
+  year = 2026,
+  onMonthChange,
+  onYearChange,
+  onSearchChange,
+}: {
+  vertical?: boolean;
+  showSearch?: boolean;
+  month?: number;
+  year?: number;
+  onMonthChange?: (m: number) => void;
+  onYearChange?: (y: number) => void;
+  onSearchChange?: (s: string) => void;
+}) {
+  return (
+    <div className={`filter-bar ${vertical ? "vertical" : ""}`}>
+      {showSearch && (
+        <label className="form-field">
+          <span>Buscar</span>
+          <input
+            type="text"
+            placeholder="DNI o Apellidos..."
+            onChange={(e) => onSearchChange?.(e.target.value)}
+          />
+        </label>
+      )}
+      <label className="form-field">
+        <span>Mes</span>
+        <select
+          value={month}
+          onChange={(e) => onMonthChange?.(Number(e.target.value))}
+        >
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+      </label>
+      <label className="form-field">
+        <span>Año</span>
+        <select
+          value={year}
+          onChange={(e) => onYearChange?.(Number(e.target.value))}
+        >
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, trend }: { label: string; value: string | number; trend?: string }) {
+  return (
+    <div className="kpi-card">
+      <span className="kpi-label">{label}</span>
+      <span className="kpi-value">{value}</span>
+      {trend && <span className="kpi-trend">{trend}</span>}
+    </div>
+  );
+}
+
+function DataTable({ columns, rows, emptyText = "Sin registros" }: { columns: string[]; rows: (string | number)[][]; emptyText?: string }) {
+  return (
+    <div className="table-responsive">
+      <table className="data-table">
+        <thead>
+          <tr>
+            {columns.map((col, idx) => (
+              <th key={idx}>{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="text-center py-4">
+                {emptyText}
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, rIdx) => (
+              <tr key={rIdx}>
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx}>{cell}</td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function DashboardPage() {
-  const [data, setData] = useState<DashboardIndicators | null>(null);
-  const [error, setError] = useState("");
+  const [indicators, setIndicators] = useState<DashboardIndicators | null>(null);
 
   useEffect(() => {
     apiClient
       .get<DashboardIndicators>("/api/v1/dashboard/indicators", {
         params: { month: 7, year: 2026 },
       })
-      .then((response) => setData(response.data))
-      .catch(() => setError("No se pudo cargar el dashboard"));
+      .then((response) => setIndicators(response.data))
+      .catch(() => setIndicators(null));
   }, []);
-
-  const distribution = data?.mark_distribution ?? {};
-  const maxValue = Math.max(1, ...Object.values(distribution));
 
   return (
     <>
       <PageHeader
-        title="Resumen operativo"
-        description="Indicadores del sistema y distribución de marcaciones del período"
+        title="Dashboard de Asistencia"
+        description="Resumen de indicadores para la UGEL (RSG N.° 326-2017-MINEDU)"
       />
-      <Filters />
-      {error && <div className="alert-danger">{error}</div>}
-      <div className="kpi-grid compact">
+      <div className="dashboard-grid">
         <KpiCard
-          accent="blue"
-          label="Archivos cargados"
-          value={data?.total_uploaded_files ?? 0}
-          trend="Importaciones biométricas"
+          label="Personal Activo"
+          value={indicators?.active_staff_members ?? "-"}
+          trend="Docentes y auxiliares"
         />
         <KpiCard
-          accent="green"
-          label="Empleados activos"
-          value={data?.active_staff_members ?? 0}
-          trend="Personal en la institución"
+          label="Archivos Cargados"
+          value={indicators?.total_uploaded_files ?? "-"}
+          trend="Período actual"
+        />
+        <KpiCard
+          label="Asistencias (A)"
+          value={indicators?.mark_distribution?.present ?? 0}
+          trend="Puntuales"
+        />
+        <KpiCard
+          label="Tardanzas (T)"
+          value={indicators?.mark_distribution?.late ?? 0}
+          trend="En minutos"
         />
       </div>
-      <section className="card">
-        <div className="card-header">Marcaciones del mes · Julio 2026</div>
-        <div className="card-body">
-          <div className="chart-bars">
-            {statusLabels.map((item) => (
-              <div className="chart-bar-wrap" key={item.key}>
-                <span className="chart-bar-value">{distribution[item.key] ?? 0}</span>
-                <div
-                  className={`chart-bar ${item.className}`}
-                  style={{
-                    height: `${Math.max(
-                      8,
-                      ((distribution[item.key] ?? 0) / maxValue) * 100,
-                    )}%`,
-                  }}
-                />
-                <span className="chart-bar-label">{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="card">
-        <div className="card-header">Últimas cargas</div>
+      <section className="card mt-4">
+        <div className="card-header">Cargas Biométricas Recientes</div>
         <DataTable
-          columns={["Archivo", "Período", "Estado", "Filas"]}
-          rows={(data?.recent_imports ?? []).map((item) => [
-            item.file_name,
-            `${item.period_start ?? "-"} / ${item.period_end ?? "-"}`,
-            statusText(item.status),
-            String(item.total_rows),
-          ])}
-          emptyText="Sin cargas registradas"
+          columns={["ID", "Archivo", "Estado", "Total Filas", "Inicio", "Fin"]}
+          rows={
+            indicators?.recent_imports?.map((imp) => [
+              imp.id,
+              imp.file_name,
+              imp.status,
+              imp.total_rows,
+              imp.period_start ?? "-",
+              imp.period_end ?? "-",
+            ]) ?? []
+          }
         />
       </section>
     </>
@@ -325,26 +462,141 @@ function DashboardPage() {
 
 function StaffPage() {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
+  // Form State
+  const [dni, setDni] = useState("");
+  const [lastNames, setLastNames] = useState("");
+  const [firstNames, setFirstNames] = useState("");
+  const [jobTitle, setJobTitle] = useState("Docente");
+  const [employmentStatus, setEmploymentStatus] = useState("Nombrado");
+  const [msg, setMsg] = useState("");
+
+  const loadStaff = () => {
     apiClient
       .get<StaffMember[]>("/api/v1/staff-members", { params: { is_active: "Y" } })
-      .then((response) => setStaffMembers(response.data))
+      .then((res) => setStaffMembers(res.data))
       .catch(() => setStaffMembers([]));
+  };
+
+  useEffect(() => {
+    loadStaff();
   }, []);
+
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    setMsg("");
+    try {
+      await apiClient.post("/api/v1/staff-members", {
+        dni,
+        last_names: lastNames,
+        first_names: firstNames,
+        job_title: jobTitle,
+        employment_status: employmentStatus,
+      });
+      setMsg("Personal registrado exitosamente");
+      setDni("");
+      setLastNames("");
+      setFirstNames("");
+      setShowModal(false);
+      loadStaff();
+    } catch {
+      setMsg("Error al registrar personal (DNI posiblemente duplicado)");
+    }
+  };
+
+  const filtered = staffMembers.filter(
+    (item) =>
+      item.dni.includes(search) ||
+      `${item.last_names} ${item.first_names}`.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <>
       <PageHeader
-        title="Personal"
-        description="Registro activo vinculado a la institución educativa"
+        title="Gestión de Personal"
+        description="Registro activo de docentes y auxiliares vinculados a la IE"
       />
-      <Filters showSearch />
+      <div className="actions-bar mb-3">
+        <Filters showSearch onSearchChange={setSearch} />
+        <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>
+          + Nuevo Personal
+        </button>
+      </div>
+
+      {msg && <div className="alert alert-info">{msg}</div>}
+
+      {showModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card card">
+            <div className="card-header">Registrar Docente / Auxiliar</div>
+            <form onSubmit={handleCreate} className="card-body form-stack">
+              <label className="form-field">
+                <span>DNI</span>
+                <input
+                  type="text"
+                  maxLength={8}
+                  value={dni}
+                  onChange={(e) => setDni(e.target.value)}
+                  placeholder="45678912"
+                  required
+                />
+              </label>
+              <label className="form-field">
+                <span>Apellidos</span>
+                <input
+                  type="text"
+                  value={lastNames}
+                  onChange={(e) => setLastNames(e.target.value)}
+                  placeholder="Quispe Mamani"
+                  required
+                />
+              </label>
+              <label className="form-field">
+                <span>Nombres</span>
+                <input
+                  type="text"
+                  value={firstNames}
+                  onChange={(e) => setFirstNames(e.target.value)}
+                  placeholder="Maria Elena"
+                  required
+                />
+              </label>
+              <label className="form-field">
+                <span>Cargo</span>
+                <select value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}>
+                  <option value="Docente">Docente</option>
+                  <option value="Auxiliar">Auxiliar de Educación</option>
+                  <option value="Director">Director</option>
+                </select>
+              </label>
+              <label className="form-field">
+                <span>Condición Laboral</span>
+                <select value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)}>
+                  <option value="Nombrado">Nombrado</option>
+                  <option value="Contratado">Contratado</option>
+                  <option value="CAS">CAS</option>
+                </select>
+              </label>
+              <div className="actions mt-3">
+                <button className="btn btn-primary" type="submit">
+                  Guardar
+                </button>
+                <button className="btn btn-secondary" type="button" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <section className="card">
-        <div className="card-header">Personal activo</div>
+        <div className="card-header">Personal Activo ({filtered.length})</div>
         <DataTable
           columns={["DNI", "Apellidos y nombres", "Cargo", "Condición", "Estado"]}
-          rows={staffMembers.map((item) => [
+          rows={filtered.map((item) => [
             item.dni,
             `${item.last_names}, ${item.first_names}`,
             item.job_title,
@@ -359,61 +611,184 @@ function StaffPage() {
 }
 
 function ImportPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [currentImport, setCurrentImport] = useState<BiometricImport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handleUpload = async () => {
+    if (!file) {
+      setMessage("Por favor selecciona un archivo CSV primero");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await apiClient.post<BiometricImport>("/api/v1/biometric-imports", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setCurrentImport(res.data);
+      setMessage(`Archivo subido exitosamente en borrador (ID: ${res.data.id})`);
+    } catch {
+      setMessage("Error al procesar el archivo CSV");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!currentImport) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.post<BiometricImport>(
+        `/api/v1/biometric-imports/${currentImport.id}/confirmation`
+      );
+      setCurrentImport(res.data);
+      setMessage("¡Carga biométrica confirmada e impactada en asistencia!");
+    } catch {
+      setMessage("Error al confirmar la carga (verifique que no existan filas sin resolver)");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!currentImport) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.post<BiometricImport>(
+        `/api/v1/biometric-imports/${currentImport.id}/cancellation`,
+        { reason: "Anulado desde la vista web" }
+      );
+      setCurrentImport(res.data);
+      setMessage("Carga anulada correctamente");
+    } catch {
+      setMessage("Error al anular la carga");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
-        title="Carga biométrica"
-        description="Archivo, validación de DNI, período detectado y confirmación"
+        title="Carga Biométrica"
+        description="Importación de marcas, validación de DNI y consolidación mensual"
       />
+      {message && <div className="alert alert-info">{message}</div>}
+
       <section className="card">
-        <div className="card-header">Nueva carga</div>
-        <div className="card-body">
+        <div className="card-header">Subir Marcaciones (CSV)</div>
+        <div className="card-body form-stack">
           <div className="dropzone">
-            <strong>Seleccionar archivo CSV</strong>
-            <span>Orden original, filas verdes y rojas</span>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+            {file ? (
+              <strong>Archivo seleccionado: {file.name}</strong>
+            ) : (
+              <span>Selecciona o arrastra tu archivo .csv aquí</span>
+            )}
           </div>
-          <div className="actions">
-            <button className="btn btn-primary" type="button">
-              Subir archivo
-            </button>
-            <button className="btn btn-danger-outline" type="button">
-              Anular carga
+          <div className="actions mt-3">
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleUpload}
+              disabled={loading || !file}
+            >
+              {loading ? "Subiendo..." : "Subir archivo"}
             </button>
           </div>
         </div>
       </section>
+
+      {currentImport && (
+        <section className="card mt-4">
+          <div className="card-header">
+            Resumen de Carga #{currentImport.id} - Status:{" "}
+            <span className="badge badge-warning">{currentImport.status}</span>
+          </div>
+          <div className="card-body">
+            <div className="dashboard-grid">
+              <KpiCard label="Archivo" value={currentImport.file_name} />
+              <KpiCard label="Total Filas" value={currentImport.total_rows} />
+              <KpiCard label="DNI Coincidentes" value={currentImport.matched_rows} />
+              <KpiCard label="Nuevos DNI" value={currentImport.new_rows} />
+            </div>
+
+            <div className="actions mt-4">
+              {currentImport.status === "draft" && (
+                <>
+                  <button
+                    className="btn btn-success"
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={loading}
+                  >
+                    Confirmar e Impactar Asistencia
+                  </button>
+                  <button
+                    className="btn btn-danger-outline"
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={loading}
+                  >
+                    Anular Carga
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </>
   );
 }
 
 function AttendancePage() {
+  const [month, setMonth] = useState(7);
+  const [year, setYear] = useState(2026);
+  const [annexData, setAnnexData] = useState<any>(null);
+
+  useEffect(() => {
+    apiClient
+      .get("/api/v1/reports/annex-03", { params: { month, year } })
+      .then((res) => setAnnexData(res.data))
+      .catch(() => setAnnexData(null));
+  }, [month, year]);
+
+  const rows =
+    annexData?.rows?.map((r: any) => [
+      r.full_name,
+      r.dni,
+      r.days?.length ?? 0,
+      r.days?.map((d: any) => `${d.attendance_date.slice(8)}:${d.status}`).join(" | ") || "Sin registros",
+    ]) ?? [];
+
   return (
     <>
       <PageHeader
-        title="Asistencia"
-        description="Grilla mensual y panel diario de edición"
+        title="Asistencia Consolidada"
+        description="Grilla mensual por personal docente y auxiliar"
       />
-      <Filters />
-      <div className="attendance-layout">
+      <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <div className="attendance-layout mt-3">
         <section className="card attendance-grid">
-          <div className="card-header">Anexo 03 · Julio 2026</div>
-          <DataTable
-            columns={["Personal", "01", "02", "03", "04", "05"]}
-            rows={[
-              ["Quispe Mamani, Maria Elena", "A", "T", "A", "J", "A"],
-              ["Huaman Rojas, Carlos Alberto", "A", "A", "F", "A", "A"],
-            ]}
-          />
-        </section>
-        <section className="card attendance-panel">
-          <div className="card-header">Día</div>
-          <div className="card-body panel-stack">
-            <KpiCard label="Fecha" value="03" trend="Julio 2026" />
-            <span className="badge badge-warning">Tardanza</span>
-            <button className="btn btn-secondary" type="button">
-              Editar estado
-            </button>
+          <div className="card-header">
+            Anexo 03 · Período {month}/{year}
           </div>
+          <DataTable
+            columns={["Personal", "DNI", "Días Registrados", "Detalle"]}
+            rows={rows}
+            emptyText="No existen marcaciones consolidadas para este período"
+          />
         </section>
       </div>
     </>
@@ -421,198 +796,206 @@ function AttendancePage() {
 }
 
 function JustificationsPage() {
+  const [staffId, setStaffId] = useState("1");
+  const [startDate, setStartDate] = useState("2026-07-10");
+  const [endDate, setEndDate] = useState("2026-07-12");
+  const [normCode, setNormCode] = useState("LG");
+  const [withPay, setWithPay] = useState("Y");
+  const [reason, setReason] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [msg, setMsg] = useState("");
+  const [justifications, setJustifications] = useState<JustificationItem[]>([]);
+
+  const loadJustifications = () => {
+    apiClient
+      .get<JustificationItem[]>("/api/v1/justifications")
+      .then((res) => setJustifications(res.data))
+      .catch(() => setJustifications([]));
+  };
+
+  useEffect(() => {
+    loadJustifications();
+  }, []);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setMsg("");
+
+    const formData = new FormData();
+    formData.append("staff_member_id", staffId);
+    formData.append("start_date", startDate);
+    formData.append("end_date", endDate);
+    formData.append("norm_code", normCode);
+    formData.append("with_pay", withPay);
+    formData.append("reason", reason);
+    if (file) {
+      formData.append("support_file", file);
+    }
+
+    try {
+      await apiClient.post("/api/v1/justifications", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMsg("Justificación registrada e impactada en asistencia");
+      setReason("");
+      setFile(null);
+      loadJustifications();
+    } catch {
+      setMsg("Error al registrar la justificación");
+    }
+  };
+
   return (
     <>
       <PageHeader
-        title="Justificaciones"
-        description="Licencias, permisos y archivos de sustento"
+        title="Justificaciones y Permisos"
+        description="Gestión de licencias con/sin goce y adjunto de sustentos"
       />
+      {msg && <div className="alert alert-info">{msg}</div>}
+
       <section className="card">
-        <div className="card-header">Registro</div>
-        <div className="card-body form-grid">
+        <div className="card-header">Nueva Justificación</div>
+        <form onSubmit={handleSubmit} className="card-body form-grid">
           <label className="form-field">
-            <span>DNI</span>
-            <input placeholder="45678912" />
+            <span>ID Personal</span>
+            <input
+              type="number"
+              value={staffId}
+              onChange={(e) => setStaffId(e.target.value)}
+              required
+            />
           </label>
           <label className="form-field">
-            <span>Norma</span>
-            <input placeholder="LIC" />
+            <span>Fecha Inicio</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
+          </label>
+          <label className="form-field">
+            <span>Fecha Fin</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              required
+            />
+          </label>
+          <label className="form-field">
+            <span>Código Norma</span>
+            <select value={normCode} onChange={(e) => setNormCode(e.target.value)}>
+              <option value="LG">LG - Licencia con Goce</option>
+              <option value="LS">LS - Licencia sin Goce</option>
+              <option value="P">P - Permiso sin Goce</option>
+              <option value="J">J - Inasistencia Justificada</option>
+              <option value="H">H - Huelga / Paro</option>
+              <option value="F">F - Feriado</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Con Goce de Remuneración</span>
+            <select value={withPay} onChange={(e) => setWithPay(e.target.value)}>
+              <option value="Y">Sí (Con Goce)</option>
+              <option value="N">No (Sin Goce)</option>
+            </select>
           </label>
           <label className="form-field wide">
-            <span>Motivo</span>
-            <input placeholder="Licencia aprobada" />
+            <span>Motivo / Detalle</span>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Descripción del motivo..."
+            />
           </label>
-          <button className="btn btn-primary" type="button">
-            Registrar
+          <label className="form-field wide">
+            <span>Sustento Adjunto (PDF/Imagen)</span>
+            <input
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button className="btn btn-primary" type="submit">
+            Registrar Justificación
           </button>
-        </div>
+        </form>
+      </section>
+
+      <section className="card mt-4">
+        <div className="card-header">Justificaciones Registradas</div>
+        <DataTable
+          columns={["ID", "Personal ID", "Código", "Inicio", "Fin", "Goce", "Estado", "Sustento"]}
+          rows={justifications.map((j) => [
+            j.id,
+            j.staff_member_id,
+            j.norm_code,
+            j.start_date,
+            j.end_date,
+            j.with_pay === "Y" ? "Sí" : "No",
+            j.status,
+            j.support_file_path ?? "Sin adjunto",
+          ])}
+        />
       </section>
     </>
   );
 }
 
 function ReportsPage() {
+  const [month, setMonth] = useState(7);
+  const [year, setYear] = useState(2026);
+  const [annex04, setAnnex04] = useState<any>(null);
+
+  const fetchReports = () => {
+    apiClient
+      .get("/api/v1/reports/annex-04", { params: { month, year } })
+      .then((res) => setAnnex04(res.data))
+      .catch(() => setAnnex04(null));
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, [month, year]);
+
   return (
     <>
       <PageHeader
-        title="Reportes"
-        description="Vista previa de Anexo 03 y Anexo 04 desde asistencia"
+        title="Reportes Oficiales UGEL"
+        description="Generación de Anexo 03 y Anexo 04 conforme a la RSG N.° 326-2017-MINEDU"
       />
       <div className="report-layout">
         <section className="card report-filter">
-          <div className="card-header">Filtros</div>
-          <div className="card-body">
-            <Filters vertical />
-            <button className="btn btn-primary btn-block" type="button">
-              Generar
+          <div className="card-header">Período de Reporte</div>
+          <div className="card-body form-stack">
+            <Filters vertical month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+            <button className="btn btn-primary btn-block" type="button" onClick={fetchReports}>
+              Actualizar Consolidado
             </button>
           </div>
         </section>
+
         <section className="card report-preview">
-          <div className="card-header">Vista previa</div>
-          <DataTable
-            columns={["Reporte", "Fuente", "Formato"]}
-            rows={[
-              ["Anexo 03", "attendance_day + institution", "JSON"],
-              ["Anexo 04", "attendance_day + institution", "JSON"],
-            ]}
-          />
+          <div className="card-header">Consolidado Anexo 04 · {month}/{year}</div>
+          <div className="card-body">
+            <div className="dashboard-grid mb-4">
+              <KpiCard label="Personal Total" value={annex04?.staff_count ?? 0} />
+              <KpiCard label="Asistencias (A)" value={annex04?.totals?.present ?? 0} />
+              <KpiCard label="Tardanzas (T)" value={annex04?.totals?.late ?? 0} />
+              <KpiCard label="Inasistencias (I/L)" value={annex04?.totals?.absent ?? 0} />
+              <KpiCard label="Justificadas (J)" value={annex04?.totals?.justified ?? 0} />
+            </div>
+
+            <div className="callout callout-info">
+              <strong>Formato Oficial UGEL:</strong>
+              <p>Los reportes consolidan la información directamente desde `attendance_day`.</p>
+            </div>
+          </div>
         </section>
       </div>
     </>
   );
-}
-
-function PageHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="page-header">
-      <h1 className="page-title">{title}</h1>
-      <p className="page-desc">{description}</p>
-    </div>
-  );
-}
-
-function Filters({
-  showSearch = false,
-  vertical = false,
-}: {
-  showSearch?: boolean;
-  vertical?: boolean;
-}) {
-  return (
-    <div className={vertical ? "filters vertical" : "filters"}>
-      {showSearch && (
-        <label className="form-field grow">
-          <span>Buscar</span>
-          <input placeholder="DNI o apellidos" />
-        </label>
-      )}
-      <label className="form-field">
-        <span>Mes</span>
-        <select defaultValue="7">
-          <option value="7">Julio</option>
-          <option value="6">Junio</option>
-          <option value="5">Mayo</option>
-        </select>
-      </label>
-      <label className="form-field">
-        <span>Año</span>
-        <select defaultValue="2026">
-          <option value="2026">2026</option>
-        </select>
-      </label>
-      {!vertical && (
-        <div className="filter-actions">
-          <button className="btn btn-sm btn-primary" type="button">
-            Aplicar
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  trend,
-  accent = "",
-}: {
-  label: string;
-  value: string | number;
-  trend: string;
-  accent?: string;
-}) {
-  return (
-    <div className={`kpi-card ${accent}`}>
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-      <div className="trend">{trend}</div>
-    </div>
-  );
-}
-
-function DataTable({
-  columns,
-  rows,
-  emptyText = "Sin registros",
-}: {
-  columns: string[];
-  rows: string[][];
-  emptyText?: string;
-}) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column}>{column}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length ? (
-            rows.map((row) => (
-              <tr key={row.join("|")}>
-                {row.map((cell, index) => (
-                  <td key={`${cell}-${index}`}>{cell}</td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={columns.length}>{emptyText}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-const statusLabels = [
-  { key: "present", label: "Asistencia", className: "success" },
-  { key: "late", label: "Tardanza", className: "warning" },
-  { key: "absent", label: "Inasistencia", className: "danger" },
-  { key: "justified", label: "Justificado", className: "info" },
-  { key: "leave", label: "Licencia", className: "violet" },
-  { key: "permission", label: "Permiso", className: "muted" },
-];
-
-function statusText(status: string) {
-  const labels: Record<string, string> = {
-    draft: "Borrador",
-    confirmed: "Confirmada",
-    cancelled: "Anulada",
-  };
-  return labels[status] ?? status;
 }
 
 export default App;
