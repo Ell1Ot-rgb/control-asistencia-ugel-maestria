@@ -1,9 +1,16 @@
 import { chromium } from 'playwright';
+import fs from 'fs';
+import path from 'path';
 
 async function runFullSuite() {
   console.log('--- INICIANDO SUITE DE PRUEBAS COMPLETA E2E PLAYWRIGHT ---');
+  const screenshotDir = path.join(process.cwd(), 'screenshots');
+  if (!fs.existsSync(screenshotDir)) {
+    fs.mkdirSync(screenshotDir, { recursive: true });
+  }
+
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
 
   const errors = [];
@@ -25,6 +32,7 @@ async function runFullSuite() {
     await page.goto('http://localhost:5173/login');
     await page.fill('input[type="text"]', 'director.demo');
     await page.fill('input[type="password"]', 'Demo12345');
+    await page.screenshot({ path: path.join(screenshotDir, '01-login.png') });
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard');
     console.log('   LOGIN EXITOSO -> Redirigido a /dashboard');
@@ -33,6 +41,7 @@ async function runFullSuite() {
     console.log('\n2. Probando Dashboard...');
     await page.click('a[href="/dashboard"]');
     await page.waitForSelector('.kpi-grid');
+    await page.screenshot({ path: path.join(screenshotDir, '02-dashboard.png') });
     const kpis = await page.locator('.kpi-card .value').allInnerTexts();
     console.log(`   KPIs capturados en Dashboard: ${JSON.stringify(kpis)}`);
 
@@ -50,8 +59,10 @@ async function runFullSuite() {
     await page.fill('input[placeholder="45678912"]', testDni);
     await page.fill('input[placeholder="Quispe Mamani"]', 'Perez Gonzalez');
     await page.fill('input[placeholder="Maria Elena"]', 'Carlos Alberto');
+    await page.screenshot({ path: path.join(screenshotDir, '03-personal-form.png') });
     await page.click('form button[type="submit"]');
     await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(screenshotDir, '03-personal-list.png') });
     const newStaffRows = await page.locator('table.data-table tbody tr').count();
     console.log(`   Personal creado exitosamente (DNI ${testDni}). Filas totales: ${newStaffRows}`);
 
@@ -59,13 +70,15 @@ async function runFullSuite() {
     console.log('\n4. Probando Carga Biométrica (/carga)...');
     await page.click('a[href="/carga"]');
     await page.waitForSelector('input[type="file"]');
+    await page.screenshot({ path: path.join(screenshotDir, '04-carga.png') });
     console.log('   Página de Carga Biométrica renderizada OK');
 
     // 5. ASISTENCIA
     console.log('\n5. Probando Asistencia (/asistencia)...');
     await page.click('a[href="/asistencia"]');
-    await page.waitForSelector('table.data-table');
-    const attendanceRows = await page.locator('table.data-table tbody tr').count();
+    await page.waitForSelector('table.attendance-grid, table.data-table');
+    await page.screenshot({ path: path.join(screenshotDir, '05-asistencia.png') });
+    const attendanceRows = await page.locator('table.attendance-grid tbody tr, table.data-table tbody tr').count();
     console.log(`   Filas en tabla de Asistencia (Anexo 03): ${attendanceRows}`);
 
     // 6. JUSTIFICACIONES
@@ -74,8 +87,10 @@ async function runFullSuite() {
     await page.waitForSelector('form');
     console.log('   Formulario de Justificaciones renderizado OK');
     await page.fill('input[placeholder="Descripción del motivo de la licencia..."]', 'Licencia por capacitación UGEL');
+    await page.screenshot({ path: path.join(screenshotDir, '06-justificaciones-form.png') });
     await page.click('form button[type="submit"]');
     await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(screenshotDir, '06-justificaciones-list.png') });
     const justRows = await page.locator('table.data-table tbody tr').count();
     console.log(`   Justificación registrada exitosamente. Total justo: ${justRows}`);
 
@@ -83,6 +98,7 @@ async function runFullSuite() {
     console.log('\n7. Probando Reportes Oficiales UGEL (/reportes)...');
     await page.click('a[href="/reportes"]');
     await page.waitForSelector('.kpi-grid');
+    await page.screenshot({ path: path.join(screenshotDir, '07-reportes.png') });
     const reportKpis = await page.locator('.kpi-card .value').allInnerTexts();
     console.log(`   Consolidado Anexo 04 capturado OK. KPIs: ${JSON.stringify(reportKpis)}`);
 
@@ -92,6 +108,7 @@ async function runFullSuite() {
 
   } catch (err) {
     console.error('ERROR EN SUITE:', err);
+    await page.screenshot({ path: path.join(screenshotDir, 'error-state.png') });
   } finally {
     await browser.close();
   }
