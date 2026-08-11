@@ -168,28 +168,43 @@ class BiometricImportService:
 
     def _parse_csv(self, content: bytes) -> list[dict[str, Any]]:
         text = content.decode("utf-8-sig", errors="replace")
+        lines = [line for line in text.splitlines() if line.strip()]
+        delimiter = "|" if lines and "|" in lines[0] else ","
         try:
-            reader = csv.DictReader(StringIO(text))
-            required_fields = {"dni", "marked_at", "mark_type"}
-            if reader.fieldnames and required_fields.issubset(set(reader.fieldnames)):
+            reader = csv.DictReader(StringIO(text), delimiter=delimiter)
+            header_map = {
+                self._normalise_header(name): name
+                for name in (reader.fieldnames or [])
+                if name
+            }
+            aliases = {
+                "dni": ("dni", "codigo_persona", "codigo", "id"),
+                "last_names": ("last_names", "apellidos", "paterno_materno", "paterno"),
+                "first_names": ("first_names", "nombres", "nombre_docente"),
+                "marked_at": ("marked_at", "fecha_hora", "marcacion_biometrico"),
+                "mark_type": ("mark_type", "tipo_marca", "sentido_reloj"),
+            }
+            if all(any(alias in header_map for alias in names) for names in aliases.values()):
                 rows: list[dict[str, Any]] = []
                 for order, raw_row in enumerate(reader, start=1):
-                    marked_at = self._parse_marked_at(raw_row.get("marked_at") or "")
+                    marked_at = self._parse_marked_at(
+                        self._alias_value(raw_row, header_map, aliases["marked_at"])
+                    )
                     row = {
                         "row_id": order,
                         "order": order,
-                        "dni": (raw_row.get("dni") or "").strip(),
-                        "last_names": (raw_row.get("last_names") or "").strip(),
-                        "first_names": (raw_row.get("first_names") or "").strip(),
+                        "dni": self._alias_value(raw_row, header_map, aliases["dni"]),
+                        "last_names": self._alias_value(raw_row, header_map, aliases["last_names"]),
+                        "first_names": self._alias_value(raw_row, header_map, aliases["first_names"]),
                         "marked_at": marked_at.isoformat(sep=" "),
-                        "mark_type": (raw_row.get("mark_type") or "").strip().lower(),
+                        "mark_type": self._normalise_mark_type(
+                            self._alias_value(raw_row, header_map, aliases["mark_type"])
+                        ),
                         "match": "new",
                         "staff_member_id": None,
                         "resolved": False,
                         "skipped": False,
                     }
-                    if row["mark_type"] not in {"entry", "exit"}:
-                        raise BiometricImportError("invalid_file")
                     self._apply_match(row)
                     rows.append(row)
                 if rows:
@@ -199,48 +214,70 @@ class BiometricImportService:
         except Exception:
             pass
 
-        # Fallback to ATTLOG .dat format (tab/space delimited)
+        # Fallback to ATTLOG and pipe-delimited exports.
         rows: list[dict[str, Any]] = []
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
         for order, line in enumerate(lines, start=1):
-            parts = [p for p in re.split(r"[\t,]+", line) if p.strip()]
-            if len(parts) >= 3:
-                dni = parts[0].strip()
-                datetime_str = parts[1].strip()
-                mark_type_raw = parts[-1].strip().lower()
-                if len(parts) >= 4 and ":" in parts[2]:
-                    datetime_str = f"{parts[1].strip()} {parts[2].strip()}"
-                    mark_type_raw = parts[3].strip().lower()
-
-                mark_type = "entry"
-                if mark_type_raw in {"0", "exit", "salida", "out"}:
-                    mark_type = "exit"
-                elif mark_type_raw in {"1", "entry", "entrada", "in"}:
-                    mark_type = "entry"
-
-                try:
-                    marked_at = self._parse_marked_at(datetime_str)
-                    row = {
-                        "row_id": order,
-                        "order": order,
-                        "dni": dni,
-                        "last_names": "",
-                        "first_names": "",
-                        "marked_at": marked_at.isoformat(sep=" "),
-                        "mark_type": mark_type,
-                        "match": "new",
-                        "staff_member_id": None,
-                        "resolved": False,
-                        "skipped": False,
-                    }
-                    self._apply_match(row)
-                    rows.append(row)
-                except Exception:
-                    continue
+            parts = [part.strip() for part in re.split(r"[\t,|]+", line) if part.strip()]
+            if not parts or not re.fullmatch(r"\d{6,}", parts[0]):
+                continue
+            date_index = next(
+                (
+                    index
+                    for index, part in enumerate(parts)
+                    if re.match(r"^\d{4}-\d{2}-\d{2}", part)
+                ),
+                None,
+            )
+            if date_index is None:
+                continue
+            datetime_str = parts[date_index]
+            mark_type_raw = parts[date_index + 1] if date_index + 1 < len(parts) else parts[-1]
+            try:
+                marked_at = self._parse_marked_at(datetime_str)
+                row = {
+                    "row_id": order,
+                    "order": order,
+                    "dni": parts[0],
+                    "last_names": parts[1] if date_index >= 3 else "",
+                    "first_names": parts[2] if date_index >= 3 else "",
+                    "marked_at": marked_at.isoformat(sep=" "),
+                    "mark_type": self._normalise_mark_type(mark_type_raw),
+                    "match": "new",
+                    "staff_member_id": None,
+                    "resolved": False,
+                    "skipped": False,
+                }
+                self._apply_match(row)
+                rows.append(row)
+            except (BiometricImportError, ValueError):
+                continue
 
         if not rows:
             raise BiometricImportError("invalid_file")
         return rows
+
+    @staticmethod
+    def _normalise_header(value: str) -> str:
+        return value.strip().lstrip("\ufeff").lower().replace(" ", "_")
+
+    @staticmethod
+    def _alias_value(
+        raw_row: dict[str, Any], header_map: dict[str, str], aliases: tuple[str, ...]
+    ) -> str:
+        for alias in aliases:
+            field = header_map.get(alias)
+            if field is not None:
+                return str(raw_row.get(field) or "").strip()
+        return ""
+
+    @staticmethod
+    def _normalise_mark_type(value: str) -> str:
+        normalised = value.strip().lower()
+        if normalised in {"1", "entry", "entrada", "in", "check-in"}:
+            return "entry"
+        if normalised in {"0", "exit", "salida", "out", "check-out"}:
+            return "exit"
+        raise BiometricImportError("invalid_file")
 
     def _apply_match(self, row: dict[str, Any]) -> None:
         staff_member = staff_member_service.get_by_dni(row["dni"])

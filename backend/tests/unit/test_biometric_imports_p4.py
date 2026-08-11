@@ -22,7 +22,6 @@ def reset_demo_data() -> None:
     attendance_service.reset()
 
 
-
 @pytest.fixture()
 def auth_headers(fake_redis) -> dict[str, str]:
     client = TestClient(app)
@@ -167,8 +166,6 @@ def test_confirm_calculates_tardanzas_correctly(auth_headers: dict[str, str]) ->
     assert late_day["late_minutes"] == 25
 
 
-
-
 def test_confirm_uses_entry_mark_instead_of_exit_mark(
     auth_headers: dict[str, str],
 ) -> None:
@@ -195,3 +192,51 @@ def test_confirm_uses_entry_mark_instead_of_exit_mark(
     late_day = [day for day in days if day["attendance_date"] == "2026-07-04"][0]
     assert late_day["status"] == "late"
     assert late_day["late_minutes"] == 30
+
+
+def test_create_import_accepts_spanish_csv_headers(
+    auth_headers: dict[str, str],
+) -> None:
+    client = TestClient(app)
+    spanish_csv = (
+        "dni,apellidos,nombres,fecha_hora,tipo_marca\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-06-03 08:10:00,entrada\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-06-03 13:00:00,salida\n"
+    )
+
+    response = client.post(
+        "/api/v1/biometric-imports",
+        files={"file": ("marcas.csv", spanish_csv, "text/csv")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["total_rows"] == 2
+    assert payload["rows"][0]["mark_type"] == "entry"
+    assert payload["rows"][0]["last_names"] == "Quispe Mamani"
+    assert payload["rows"][1]["mark_type"] == "exit"
+
+
+def test_create_import_accepts_pipe_attlog_with_header(
+    auth_headers: dict[str, str],
+) -> None:
+    client = TestClient(app)
+    pipe_dat = (
+        "C1|C2|C3|C4|C5\n"
+        "45678912|Quispe Mamani|Maria Elena|2026-06-04 08:15:00|entrada\n"
+        "45678912|Quispe Mamani|Maria Elena|2026-06-04 13:00:00|salida\n"
+    )
+
+    response = client.post(
+        "/api/v1/biometric-imports",
+        files={"file": ("marcas.dat", pipe_dat, "application/octet-stream")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["total_rows"] == 2
+    assert payload["period_start"] == "2026-06-04"
+    assert payload["rows"][0]["mark_type"] == "entry"
+    assert payload["rows"][1]["mark_type"] == "exit"
