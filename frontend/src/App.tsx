@@ -1,40 +1,11 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
-import {
-  Navigate,
-  NavLink,
-  Route,
-  Routes,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-
-import apiClient from "./services/apiClient";
-
-type AccessMap = {
-  modules: string[];
-  operations: Record<string, boolean>;
-};
+import { Link, NavLink, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
+import { apiClient } from "./services/apiClient";
 
 type Session = {
   token: string;
   username: string;
   role: string;
-  access: AccessMap;
-};
-
-type DashboardIndicators = {
-  total_uploaded_files: number;
-  active_staff_members: number;
-  period: { month: number; year: number };
-  mark_distribution: Record<string, number>;
-  recent_imports: Array<{
-    id: number;
-    file_name: string;
-    status: string;
-    period_start: string | null;
-    period_end: string | null;
-    total_rows: number;
-  }>;
 };
 
 type StaffMember = {
@@ -43,8 +14,22 @@ type StaffMember = {
   last_names: string;
   first_names: string;
   job_title: string;
-  employment_status: string | null;
-  is_active: "Y" | "N";
+  employment_status: string;
+  is_active: string;
+};
+
+type DashboardIndicators = {
+  active_staff_members: number;
+  total_uploaded_files: number;
+  mark_distribution: { present: number; late: number; absent: number; justified: number };
+  recent_imports: Array<{
+    id: number;
+    file_name: string;
+    status: string;
+    total_rows: number;
+    period_start: string | null;
+    period_end: string | null;
+  }>;
 };
 
 type BiometricImport = {
@@ -59,6 +44,7 @@ type BiometricImport = {
   ok_rows: number;
   error_rows: number;
   rows?: Array<{
+    row_id: number;
     order: number;
     dni: string;
     last_names: string;
@@ -206,7 +192,7 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
       <div className="login-card card">
         <div className="card-header border-none">
           <p className="kicker">RSG N.° 326-2017-MINEDU</p>
-          <h1>Control de Asistencia Biometria</h1>
+          <h1>Control de Asistencia Biometría</h1>
           <p className="subtitle">CHIQUISTRUKIS · Institución Educativa</p>
         </div>
         <form onSubmit={submit} className="card-body form-stack">
@@ -571,7 +557,7 @@ function StaffPage() {
                 <span>Cargo</span>
                 <select value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}>
                   <option value="Docente">Docente</option>
-                  <option value="Auxiliar">Auxiliar de Educación</option>
+                  <option value="Auxiliar de Educación">Auxiliar de Educación</option>
                   <option value="Director">Director</option>
                 </select>
               </label>
@@ -687,7 +673,7 @@ function ImportPage() {
     try {
       const res = await apiClient.post<BiometricImport>(
         `/api/v1/biometric-imports/${currentImport.id}/cancellation`,
-        { reason: "Anulado desde la vista web" },
+        { reason: "Anulado desde la vista web" }
       );
       setCurrentImport(res.data);
       setMessage("Carga anulada correctamente");
@@ -752,30 +738,6 @@ function ImportPage() {
   );
 }
 
-function AttendanceBadge({ day }: { day: AttendanceDay }) {
-  if (day.status === "none") return null;
-  const dateNum = day.attendance_date?.slice(8) ?? "?";
-  const lateMinutes = day.late_minutes ?? 0;
-  let label = "-";
-  let color = "#475569";
-  let background = "#e2e8f0";
-  let title = `Día ${dateNum}: Sin registro`;
-  if (day.status === "present") {
-    label = "A"; color = "#15803d"; background = "#dcfce7"; title = `Día ${dateNum}: Asistencia Puntual`;
-  } else if (day.status === "late") {
-    label = "T"; color = "#a16207"; background = "#fef9c3"; title = `Día ${dateNum}: Tardanza (+${lateMinutes}m)`;
-  } else if (["justified", "leave", "permission"].includes(day.status)) {
-    label = "J"; color = "#1d4ed8"; background = "#dbeafe"; title = `Día ${dateNum}: Justificada`;
-  } else if (day.status === "absent") {
-    label = "I"; color = "#b91c1c"; background = "#fee2e2"; title = `Día ${dateNum}: Inasistencia`;
-  }
-  return (
-    <span title={title} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", color, background, fontWeight: "bold", fontSize: 11, margin: 2 }}>
-      {label}
-    </span>
-  );
-}
-
 const handleDownloadOfficialExcel = async (month: number, year: number) => {
   try {
     const response = await apiClient.get("/api/v1/reports/official-excel", { params: { month, year }, responseType: "blob" });
@@ -806,15 +768,64 @@ function AttendancePage() {
   const [month, setMonth] = useState(7);
   const [year, setYear] = useState(2026);
   const [annexData, setAnnexData] = useState<Annex03Report | null>(null);
+  const [imports, setImports] = useState<BiometricImport[]>([]);
+  const [selectedImportId, setSelectedImportId] = useState("");
+  const [selectedCell, setSelectedCell] = useState<{
+    staffId: number;
+    fullName: string;
+    dni: string | null;
+    date: string;
+    status: string;
+    lateMinutes: number;
+  } | null>(null);
   const [editMessage, setEditMessage] = useState("");
   const navigate = useNavigate();
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  useEffect(() => {
-    apiClient.get<Annex03Report>("/api/v1/reports/annex-03", { params: { month, year } })
-      .then((res) => setAnnexData(res.data))
-      .catch(() => setAnnexData(null));
+  const fetchAttendance = useCallback(() => Promise.all([
+    apiClient.get<Annex03Report>("/api/v1/reports/annex-03", { params: { month, year } }),
+    apiClient.get<BiometricImport[]>("/api/v1/biometric-imports", { params: { month, year } }),
+  ]), [month, year]);
+
+  const applyAttendanceData = useCallback(([attendanceResponse, importsResponse]: [
+    { data: Annex03Report },
+    { data: BiometricImport[] },
+  ]) => {
+    setAnnexData(attendanceResponse.data);
+    setImports(importsResponse.data);
+    setSelectedImportId((current) => current || String(importsResponse.data[0]?.id ?? ""));
+    const firstRow = attendanceResponse.data.rows[0];
+    if (firstRow) {
+      const date = `${year}-${String(month).padStart(2, "0")}-01`;
+      const firstDay = firstRow.days.find((day) => day.attendance_date === date);
+      setSelectedCell({
+        staffId: firstRow.staff_member_id,
+        fullName: firstRow.full_name,
+        dni: firstRow.dni,
+        date,
+        status: firstDay?.status ?? "none",
+        lateMinutes: firstDay?.late_minutes ?? 0,
+      });
+    } else {
+      setSelectedCell(null);
+    }
   }, [month, year]);
+
+  const loadAttendance = useCallback(() => {
+    fetchAttendance().then(applyAttendanceData).catch(() => {
+      setAnnexData(null);
+      setImports([]);
+      setSelectedCell(null);
+    });
+  }, [applyAttendanceData, fetchAttendance]);
+
+  useEffect(() => {
+    fetchAttendance().then(applyAttendanceData).catch(() => {
+      setAnnexData(null);
+      setImports([]);
+      setSelectedCell(null);
+    });
+  }, [applyAttendanceData, fetchAttendance]);
 
   const saveAttendance = async (staffId: number, dateValue: string, status: string, lateMinutes = 0) => {
     try {
@@ -834,56 +845,71 @@ function AttendancePage() {
           }),
         };
       });
+      setSelectedCell((current) => current && current.staffId === staffId && current.date === dateValue
+        ? { ...current, status, lateMinutes: response.data.late_minutes ?? 0 }
+        : current);
       setEditMessage(`Cambio guardado: ${dateValue} · ${status === "none" ? "Sin registro" : status}`);
     } catch {
       setEditMessage("No se pudo guardar el cambio de asistencia");
     }
   };
 
+  const handleSaveSelected = () => {
+    if (selectedCell) saveAttendance(selectedCell.staffId, selectedCell.date, selectedCell.status, selectedCell.lateMinutes);
+  };
+
   return (
     <>
-      <PageHeader title="Asistencia Consolidada" description="Grilla mensual editable conforme al Anexo 03 de la RSG N.° 326-2017-MINEDU" />
-      <div className="actions" style={{ justifyContent: "space-between" }}>
-        <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-        <button className="btn btn-primary" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Generar Excel Oficial (.xlsx)</button>
-      </div>
-      {editMessage && <div className="alert alert-info">{editMessage}</div>}
-      <section className="card mt-3">
-        <div className="card-header">Anexo 03 · Período {month}/{year} · Editable antes de generar</div>
-        <div className="card-body table-responsive">
-          <table className="data-table">
-            <thead><tr><th>Personal</th><th>DNI</th><th>Días</th><th>Detalle editable</th></tr></thead>
-            <tbody>
-              {!annexData?.rows?.length ? (
-                <tr><td colSpan={4}>No existen trabajadores activos para este período</td></tr>
-              ) : annexData.rows.map((row) => {
-                const dayMap = new Map(row.days.map((day) => [day.attendance_date, day]));
-                return (
-                  <tr key={row.staff_member_id}>
-                    <td><button className="btn btn-ghost btn-sm" type="button" title="Haz click para justificar inasistencias o tardanzas de este docente" onClick={() => navigate(`/justificaciones?staff_id=${row.staff_member_id}`)}>{row.full_name}</button></td>
-                    <td>{row.dni}</td>
-                    <td>{row.days.length} registrados</td>
-                    <td><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {Array.from({ length: daysInMonth }, (_, index) => {
-                        const dayNumber = index + 1;
-                        const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
-                        const day = dayMap.get(dateValue) ?? { id: 0, attendance_date: dateValue, status: "none", late_minutes: 0 };
-                        return <label key={dateValue} title={`Editar día ${dayNumber}`} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-                          <select aria-label={`Estado día ${dayNumber} ${row.full_name}`} value={day.status} onChange={(event) => saveAttendance(row.staff_member_id, dateValue, event.target.value, day.late_minutes ?? 0)} style={{ width: 58, fontSize: 10, height: 26 }}>
-                            {attendanceStatuses.map(([value, label]) => <option key={value} value={value}>{dayNumber}: {label}</option>)}
-                          </select>
-                          {day.status === "late" && <input aria-label={`Minutos día ${dayNumber} ${row.full_name}`} type="number" min="1" value={day.late_minutes ?? 15} onChange={(event) => saveAttendance(row.staff_member_id, dateValue, "late", Number(event.target.value))} style={{ width: 48, fontSize: 10, height: 26 }} />}
-                          <AttendanceBadge day={day} />
-                        </label>;
-                      })}
-                    </div></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <PageHeader title="Asistencia" description="Grilla mensual y panel diario de edición" />
+      <section className="card attendance-toolbar">
+        <div className="filters">
+          <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+          <label className="form-field attendance-file-filter"><span>Archivo</span><select aria-label="Archivo de carga" value={selectedImportId} onChange={(event) => setSelectedImportId(event.target.value)}><option value="">Todos los archivos</option>{imports.map((item) => <option key={item.id} value={item.id}>#{item.id} · {item.file_name}</option>)}</select></label>
+          <button className="btn btn-primary attendance-filter-button" type="button" onClick={loadAttendance}>Filtrar</button>
         </div>
       </section>
+      {editMessage && <div className="alert alert-info">{editMessage}</div>}
+      <div className="attendance-layout mt-3">
+        <section className="card attendance-grid-card">
+          <div className="card-header">Asistencia cargada · {String(month).padStart(2, "0")}/{year}</div>
+          <div className="card-body table-responsive">
+            <table className="attendance-grid">
+              <thead><tr><th>Personal</th><th>DNI</th>{Array.from({ length: daysInMonth }, (_, index) => <th key={index + 1}>{String(index + 1).padStart(2, "0")}</th>)}</tr></thead>
+              <tbody>
+                {!annexData?.rows?.length ? (
+                  <tr><td colSpan={daysInMonth + 2}>No existen trabajadores activos para este período</td></tr>
+                ) : annexData.rows.map((row) => {
+                  const dayMap = new Map(row.days.map((day) => [day.attendance_date, day]));
+                  return <tr key={row.staff_member_id}>
+                    <td><button className="btn btn-ghost btn-sm attendance-person" type="button" title="Justificar inasistencias o tardanzas" onClick={() => navigate(`/justificaciones?staff_id=${row.staff_member_id}`)}>{row.full_name}</button></td>
+                    <td>{row.dni}</td>
+                    {Array.from({ length: daysInMonth }, (_, index) => {
+                      const dayNumber = index + 1;
+                      const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
+                      const day = dayMap.get(dateValue) ?? { id: 0, attendance_date: dateValue, status: "none", late_minutes: 0 };
+                      const selected = selectedCell?.staffId === row.staff_member_id && selectedCell.date === dateValue;
+                      const label = day.status === "present" ? "A" : day.status === "late" ? "T" : day.status === "justified" ? "J" : day.status === "leave" ? "L" : day.status === "permission" ? "P" : day.status === "absent" ? "I" : "-";
+                      return <td key={dateValue}><button type="button" className={`attendance-cell status-${day.status}${selected ? " is-selected" : ""}`} aria-label={`Día ${dayNumber} ${row.full_name}`} title={`Día ${dayNumber}: ${day.status}${day.status === "late" ? ` (+${day.late_minutes ?? 0} min)` : ""}`} onClick={() => setSelectedCell({ staffId: row.staff_member_id, fullName: row.full_name, dni: row.dni, date: dateValue, status: day.status, lateMinutes: day.late_minutes ?? 0 })}>{label}</button></td>;
+                    })}
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <aside className="card attendance-panel">
+          <div className="card-header">Editar</div>
+          <div className="card-body panel-stack">
+            {selectedCell ? <>
+              <div className="attendance-selection"><strong>PERSONAL</strong><b>{selectedCell.fullName}</b><strong>DNI</strong><b>{selectedCell.dni ?? "—"}</b><strong>FECHA</strong><b>{selectedCell.date}</b></div>
+              <label className="form-field"><span>Estado</span><select value={selectedCell.status} onChange={(event) => setSelectedCell((current) => current ? { ...current, status: event.target.value } : current)}>{attendanceStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label className="form-field"><span>Minutos tardanza</span><input type="number" min="0" value={selectedCell.lateMinutes} disabled={selectedCell.status !== "late"} onChange={(event) => setSelectedCell((current) => current ? { ...current, lateMinutes: Number(event.target.value) } : current)} /></label>
+              <button className="btn btn-primary btn-block" type="button" onClick={handleSaveSelected}>Guardar</button>
+            </> : <p>Seleccioná una celda para editarla.</p>}
+          </div>
+        </aside>
+      </div>
+      <div className="actions mt-3"><button className="btn btn-primary" type="button" onClick={() => handleDownloadOfficialExcel(month, year)}>Generar Excel Oficial (.xlsx)</button><span className="attendance-legend">A Puntual · T Tardanza · J Justificada · I Inasistencia</span></div>
     </>
   );
 }
