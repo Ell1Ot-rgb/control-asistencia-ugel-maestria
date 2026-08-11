@@ -223,8 +223,6 @@ function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
 }
 
 function Shell({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const location = useLocation();
-
   return (
     <div className="app">
       <aside className="sidebar">
@@ -273,13 +271,49 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
       </aside>
 
       <div className="main">
-        <header className="header">
-          <div className="header-left">{location.pathname}</div>
-          <div className="header-right">
-            <span className="badge badge-success" style={{ background: "#dcfce7", color: "#15803d", padding: "4px 8px", borderRadius: "4px", fontSize: "12px" }}>
-              ● Backend Conectado
-            </span>
+        <header className="header" style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div className="logo" style={{ width: "30px", height: "30px", fontSize: "14px" }}>C</div>
+              <div>
+                <strong style={{ fontSize: "14px" }}>CHIQUISTRUKIS</strong>
+                <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "8px" }}>UGEL Control</span>
+              </div>
+              <span className="badge badge-success" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", marginLeft: "8px" }}>
+                ● Conectado
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "13px", color: "#475569" }}>
+                <strong>{session.username}</strong> ({session.role})
+              </span>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={onLogout}
+                type="button"
+                style={{ color: "#ef4444", fontWeight: "bold" }}
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </div>
+
+          <nav style={{ display: "flex", gap: "8px", overflowX: "auto", width: "100%", paddingBottom: "4px" }}>
+            {navigationItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`
+                }
+                style={{ textDecoration: "none", flexShrink: 0 }}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
         </header>
 
         <main className="content">
