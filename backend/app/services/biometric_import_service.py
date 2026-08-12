@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import re
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime
 from io import StringIO
 from typing import Any
 
@@ -120,6 +120,8 @@ class BiometricImportService:
                 continue
             marked_at_str = row["marked_at"]
             date_part, time_part = marked_at_str.split(" ", 1)
+            if date.fromisoformat(date_part).weekday() >= 5:
+                continue
 
             hours, minutes, _ = map(int, time_part.split(":"))
             entry_minutes = hours * 60 + minutes

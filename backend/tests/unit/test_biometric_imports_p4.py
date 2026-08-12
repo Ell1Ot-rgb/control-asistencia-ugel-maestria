@@ -172,8 +172,8 @@ def test_confirm_uses_entry_mark_instead_of_exit_mark(
     client = TestClient(app)
     csv_with_exit = (
         "dni,last_names,first_names,marked_at,mark_type\n"
-        "45678912,Quispe Mamani,Maria Elena,2026-07-04 08:30:00,entry\n"
-        "45678912,Quispe Mamani,Maria Elena,2026-07-04 13:00:00,exit\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-03 08:30:00,entry\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-03 13:00:00,exit\n"
     )
     import_response = client.post(
         "/api/v1/biometric-imports",
@@ -189,9 +189,34 @@ def test_confirm_uses_entry_mark_instead_of_exit_mark(
 
     assert confirm_response.status_code == 200
     days = attendance_service.list_month(7, 2026, staff_member_id=1)
-    late_day = [day for day in days if day["attendance_date"] == "2026-07-04"][0]
+    late_day = [day for day in days if day["attendance_date"] == "2026-07-03"][0]
     assert late_day["status"] == "late"
     assert late_day["late_minutes"] == 30
+
+
+def test_confirm_skips_weekend_entry_marks(
+    auth_headers: dict[str, str],
+) -> None:
+    client = TestClient(app)
+    weekend_csv = (
+        "dni,last_names,first_names,marked_at,mark_type\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-04 08:10:00,entry\n"
+        "45678912,Quispe Mamani,Maria Elena,2026-07-04 13:00:00,exit\n"
+    )
+    import_response = client.post(
+        "/api/v1/biometric-imports",
+        files={"file": ("weekend.csv", weekend_csv, "text/csv")},
+        headers=auth_headers,
+    )
+    import_id = import_response.json()["id"]
+
+    confirm_response = client.post(
+        f"/api/v1/biometric-imports/{import_id}/confirmation",
+        headers=auth_headers,
+    )
+
+    assert confirm_response.status_code == 200
+    assert attendance_service.list_month(7, 2026, staff_member_id=1) == []
 
 
 def test_create_import_accepts_spanish_csv_headers(

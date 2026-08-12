@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { apiClient } from "./services/apiClient";
 
@@ -287,6 +287,7 @@ function PageHeader({ title, description }: { title: string; description: string
 function Filters({
   vertical = false,
   showSearch = false,
+  showPeriod = true,
   month = 7,
   year = 2026,
   onMonthChange,
@@ -295,6 +296,7 @@ function Filters({
 }: {
   vertical?: boolean;
   showSearch?: boolean;
+  showPeriod?: boolean;
   month?: number;
   year?: number;
   onMonthChange?: (m: number) => void;
@@ -313,36 +315,38 @@ function Filters({
           />
         </label>
       )}
-      <label className="form-field">
-        <span>Mes</span>
-        <select
-          value={month}
-          onChange={(e) => onMonthChange?.(Number(e.target.value))}
-        >
-          <option value="1">Enero</option>
-          <option value="2">Febrero</option>
-          <option value="3">Marzo</option>
-          <option value="4">Abril</option>
-          <option value="5">Mayo</option>
-          <option value="6">Junio</option>
-          <option value="7">Julio</option>
-          <option value="8">Agosto</option>
-          <option value="9">Septiembre</option>
-          <option value="10">Octubre</option>
-          <option value="11">Noviembre</option>
-          <option value="12">Diciembre</option>
-        </select>
-      </label>
-      <label className="form-field">
-        <span>Año</span>
-        <select
-          value={year}
-          onChange={(e) => onYearChange?.(Number(e.target.value))}
-        >
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-        </select>
-      </label>
+      {showPeriod && <>
+        <label className="form-field">
+          <span>Mes</span>
+          <select
+            value={month}
+            onChange={(e) => onMonthChange?.(Number(e.target.value))}
+          >
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </label>
+        <label className="form-field">
+          <span>Año</span>
+          <select
+            value={year}
+            onChange={(e) => onYearChange?.(Number(e.target.value))}
+          >
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+          </select>
+        </label>
+      </>}
     </div>
   );
 }
@@ -392,15 +396,18 @@ function DataTable({ columns, rows, emptyText = "Sin registros" }: { columns: st
 
 function DashboardPage() {
   const [indicators, setIndicators] = useState<DashboardIndicators | null>(null);
+  const now = useMemo(() => new Date(), []);
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
 
   useEffect(() => {
     apiClient
       .get<DashboardIndicators>("/api/v1/dashboard/indicators", {
-        params: { month: 7, year: 2026 },
+        params: { month, year },
       })
       .then((response) => setIndicators(response.data))
       .catch(() => setIndicators(null));
-  }, []);
+  }, [month, year]);
 
   return (
     <>
@@ -408,6 +415,11 @@ function DashboardPage() {
         title="Dashboard de Asistencia"
         description="Resumen de indicadores para la UGEL (RSG N.° 326-2017-MINEDU)"
       />
+      <section className="card">
+        <div className="filters">
+          <Filters month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+        </div>
+      </section>
       <div className="kpi-grid">
         <KpiCard
           label="Personal Activo"
@@ -509,7 +521,7 @@ function StaffPage() {
         description="Registro activo de docentes y auxiliares vinculados a la IE"
       />
       <div className="actions mb-3">
-        <Filters showSearch onSearchChange={setSearch} />
+        <Filters showSearch showPeriod={false} onSearchChange={setSearch} />
         <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>
           + Nuevo Personal
         </button>
@@ -771,6 +783,7 @@ function AttendancePage() {
   const [year, setYear] = useState(2026);
   const [annexData, setAnnexData] = useState<Annex03Report | null>(null);
   const [imports, setImports] = useState<BiometricImport[]>([]);
+  const [availableImports, setAvailableImports] = useState<BiometricImport[]>([]);
   const [selectedImportId, setSelectedImportId] = useState("");
   const [selectedCell, setSelectedCell] = useState<{
     staffId: number;
@@ -784,50 +797,44 @@ function AttendancePage() {
   const navigate = useNavigate();
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  const fetchAttendance = useCallback(() => Promise.all([
-    apiClient.get<Annex03Report>("/api/v1/reports/annex-03", { params: { month, year } }),
-    apiClient.get<BiometricImport[]>("/api/v1/biometric-imports", { params: { month, year } }),
-  ]), [month, year]);
-
-  const applyAttendanceData = useCallback(([attendanceResponse, importsResponse]: [
-    { data: Annex03Report },
-    { data: BiometricImport[] },
-  ]) => {
-    setAnnexData(attendanceResponse.data);
-    setImports(importsResponse.data);
-    setSelectedImportId((current) => current || String(importsResponse.data[0]?.id ?? ""));
-    const firstRow = attendanceResponse.data.rows[0];
-    if (firstRow) {
-      const date = `${year}-${String(month).padStart(2, "0")}-01`;
-      const firstDay = firstRow.days.find((day) => day.attendance_date === date);
-      setSelectedCell({
-        staffId: firstRow.staff_member_id,
-        fullName: firstRow.full_name,
-        dni: firstRow.dni,
-        date,
-        status: firstDay?.status ?? "none",
-        lateMinutes: firstDay?.late_minutes ?? 0,
+  const loadAttendance = useCallback(() => {
+    Promise.all([
+      apiClient.get<Annex03Report>("/api/v1/reports/annex-03", { params: { month, year } }),
+      apiClient.get<BiometricImport[]>("/api/v1/biometric-imports", { params: { month, year } }),
+    ])
+      .then(([attendanceResponse, importsResponse]) => {
+        setAnnexData(attendanceResponse.data);
+        setImports(importsResponse.data);
+        setSelectedImportId((current) => current || String(importsResponse.data[0]?.id ?? ""));
+        const firstRow = attendanceResponse.data.rows[0];
+        if (firstRow) {
+          const date = `${year}-${String(month).padStart(2, "0")}-01`;
+          const firstDay = firstRow.days.find((day) => day.attendance_date === date);
+          setSelectedCell({
+            staffId: firstRow.staff_member_id,
+            fullName: firstRow.full_name,
+            dni: firstRow.dni,
+            date,
+            status: firstDay?.status ?? "none",
+            lateMinutes: firstDay?.late_minutes ?? 0,
+          });
+        } else {
+          setSelectedCell(null);
+        }
+      })
+      .catch(() => {
+        setAnnexData(null);
+        setImports([]);
+        setSelectedCell(null);
       });
-    } else {
-      setSelectedCell(null);
-    }
   }, [month, year]);
 
-  const loadAttendance = useCallback(() => {
-    fetchAttendance().then(applyAttendanceData).catch(() => {
-      setAnnexData(null);
-      setImports([]);
-      setSelectedCell(null);
-    });
-  }, [applyAttendanceData, fetchAttendance]);
-
   useEffect(() => {
-    fetchAttendance().then(applyAttendanceData).catch(() => {
-      setAnnexData(null);
-      setImports([]);
-      setSelectedCell(null);
-    });
-  }, [applyAttendanceData, fetchAttendance]);
+    loadAttendance();
+    apiClient.get<BiometricImport[]>("/api/v1/biometric-imports")
+      .then((response) => setAvailableImports(response.data))
+      .catch(() => setAvailableImports([]));
+  }, [loadAttendance]);
 
   const saveAttendance = async (staffId: number, dateValue: string, status: string, lateMinutes = 0) => {
     try {
@@ -873,6 +880,15 @@ function AttendancePage() {
     if (selectedCell) saveAttendance(selectedCell.staffId, selectedCell.date, selectedCell.status, selectedCell.lateMinutes);
   };
 
+  const latestAvailableImport = [...availableImports]
+    .filter((item) => item.period_end)
+    .sort((a, b) => String(b.period_end).localeCompare(String(a.period_end)))[0];
+  const latestPeriod = latestAvailableImport?.period_end?.split("-") ?? [];
+  const hasDifferentAvailablePeriod = Boolean(
+    latestPeriod.length >= 2
+      && (Number(latestPeriod[0]) !== year || Number(latestPeriod[1]) !== month),
+  );
+
   return (
     <>
       <PageHeader title="Asistencia" description="Grilla mensual y panel diario de edición" />
@@ -885,6 +901,16 @@ function AttendancePage() {
         </div>
       </section>
       {editMessage && <div className="alert alert-info">{editMessage}</div>}
+      {hasDifferentAvailablePeriod && latestAvailableImport && (
+        <div className="alert alert-info attendance-period-hint">
+          El período seleccionado es {String(month).padStart(2, "0")}/{year}. Hay una carga más reciente hasta {latestAvailableImport.period_end}.
+          <button className="btn btn-secondary btn-sm" type="button" onClick={() => {
+            const period = String(latestAvailableImport.period_end).split("-");
+            setYear(Number(period[0]));
+            setMonth(Number(period[1]));
+          }}>Ver período con datos</button>
+        </div>
+      )}
       <div className="attendance-layout mt-3">
         <section className="card attendance-grid-card">
           <div className="card-header">Asistencia cargada · {String(month).padStart(2, "0")}/{year}</div>
