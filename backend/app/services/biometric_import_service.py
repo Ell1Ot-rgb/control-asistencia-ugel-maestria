@@ -135,20 +135,7 @@ class BiometricImportService:
                 late_minutes=late,
             )
 
-            try:
-                if imp.get("rows"):
-                    sample_date = str(imp["rows"][0].get("marked_at", ""))[:10]
-                    if "-" in sample_date:
-                        dt = datetime.fromisoformat(sample_date)
-                        from app.services.report_service import report_service
-
-                        report_service.consolidate_monthly_attendance(
-                            dt.month, dt.year
-                        )
-            except Exception:
-                pass
-
-            return deepcopy(imp)
+        return deepcopy(imp)
 
     def cancel(self, import_id: int, reason: str) -> dict[str, Any]:
         imp = self._find(import_id)
